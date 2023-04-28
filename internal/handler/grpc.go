@@ -22,7 +22,7 @@ func GRPCHandler(validator middleware.Validator) http.HandlerFunc {
 			grpcResponse(writer, http.StatusExpectationFailed, "read all body error: "+err.Error())
 			return
 		}
-		logger.Infof("GRPC Method: [%s], RequestURI: [%s], Port: [%s]", request.Method, request.URL.RequestURI())
+		logger.Infof("GRPC Method: [%s], RequestURI: [%s]", request.Method, request.URL.RequestURI())
 		logger.Info("GRPC request body base64: ", base64.StdEncoding.EncodeToString(body))
 		if len(body) < 5 {
 			grpcResponse(writer, http.StatusExpectationFailed, "invalid body")
@@ -105,11 +105,12 @@ func GRPCHandler(validator middleware.Validator) http.HandlerFunc {
 			}
 		}
 		// todo success response
-		grpcResponse(writer, http.StatusOK, "ok")
+		grpcResponse(writer, 0, "ok")
 	}
 }
 
 func grpcResponse(writer http.ResponseWriter, code int, msg string) {
+	writer.Header().Set("Content-Type", "application/grpc")
 	writer.Header().Add("grpc-status", strconv.Itoa(code))
 	writer.Header().Add("grpc-message", msg)
 	writer.WriteHeader(http.StatusOK)

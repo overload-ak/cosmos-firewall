@@ -22,7 +22,7 @@ func JSONRPCHandler(validator middleware.Validator) http.HandlerFunc {
 			jsonRpcResponse(w, http.StatusInternalServerError, types.RPCInvalidParamsError(nil, err))
 			return
 		}
-		logger.Infof("JSONRPC Method: [%s], RequestURI: [%s], Port: [%s]", r.Method, r.URL.RequestURI())
+		logger.Infof("JSONRPC Method: [%s], RequestURI: [%s]", r.Method, r.URL.RequestURI())
 		logger.Info("JSONRPC request body base64: ", base64.StdEncoding.EncodeToString(body))
 		path := r.URL.Path
 		if !validator.IsJSONPRCPathAllowed(path) {
@@ -65,7 +65,7 @@ func JSONRPCHandler(validator middleware.Validator) http.HandlerFunc {
 			}
 		}
 		// todo success response
-		jsonRpcResponse(w, http.StatusOK, types.NewRPCSuccessResponse(nil, nil))
+		jsonRpcResponse(w, http.StatusOK, types.NewRPCSuccessResponse(nil, "success"))
 	}
 }
 
@@ -100,7 +100,13 @@ func getTxBytesFromParams(data json.RawMessage) ([]byte, error) {
 }
 
 func jsonRpcResponse(writer http.ResponseWriter, code int, res types.RPCResponse) {
-	if err := server.WriteRPCResponseHTTPError(writer, code, res); err != nil {
+	if code != http.StatusOK {
+		if err := server.WriteRPCResponseHTTPError(writer, code, res); err != nil {
+			logger.Error("failed to write response", "res", res, "err", err)
+		}
+		return
+	}
+	if err := server.WriteRPCResponseHTTP(writer, types.NewRPCSuccessResponse(types.JSONRPCIntID(0), res)); err != nil {
 		logger.Error("failed to write response", "res", res, "err", err)
 	}
 }

@@ -21,7 +21,7 @@ func RestHandler(validator middleware.Validator) http.HandlerFunc {
 			restResponse(writer, http.StatusInternalServerError, "read all body error: ", nil)
 			return
 		}
-		logger.Infof("REST Method: [%s], RequestURI: [%s], Port: [%s]", request.Method, request.URL.RequestURI())
+		logger.Infof("REST Method: [%s], RequestURI: [%s]", request.Method, request.URL.RequestURI())
 		logger.Info("REST request body base64: ", base64.StdEncoding.EncodeToString(body))
 		url := request.URL.RequestURI()
 
@@ -104,6 +104,7 @@ func RestHandler(validator middleware.Validator) http.HandlerFunc {
 			}
 		}
 		// todo success response
+		restResponse(writer, http.StatusOK, "success", nil)
 	}
 }
 
@@ -122,7 +123,7 @@ func restResponse(writer http.ResponseWriter, code int, msg string, data interfa
 		Data: data,
 	}
 	d, err := json.Marshal(response)
-	logger.Infof("http response statusCode: %d, body: %s", code, base64.StdEncoding.EncodeToString(d))
+	logger.Infof("REST response statusCode: %d, body: %s", code, base64.StdEncoding.EncodeToString(d))
 	if err != nil {
 		logger.Errorf("output json marshal error: %s", err.Error())
 	} else {
