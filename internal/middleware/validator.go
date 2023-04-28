@@ -8,9 +8,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
 
-	"github.com/overload-ak/fx-firewall/config"
-	"github.com/overload-ak/fx-firewall/internal/chain"
-	"github.com/overload-ak/fx-firewall/internal/utils"
+	"github.com/overload-ak/cosmos-firewall/config"
+	"github.com/overload-ak/cosmos-firewall/internal/chain"
+	"github.com/overload-ak/cosmos-firewall/internal/utils"
 )
 
 type Validator struct {

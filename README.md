@@ -1,1 +1,1 @@
-# fx-firewall
+# cosmos-firewall

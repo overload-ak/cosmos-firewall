@@ -8,10 +8,10 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
-	"github.com/overload-ak/fx-firewall/config"
-	"github.com/overload-ak/fx-firewall/internal/handler"
-	"github.com/overload-ak/fx-firewall/internal/middleware"
-	"github.com/overload-ak/fx-firewall/logger"
+	"github.com/overload-ak/cosmos-firewall/config"
+	"github.com/overload-ak/cosmos-firewall/internal/handler"
+	"github.com/overload-ak/cosmos-firewall/internal/middleware"
+	"github.com/overload-ak/cosmos-firewall/logger"
 )
 
 const (
@@ -53,7 +53,7 @@ func start() *cobra.Command {
 			return Run(cfg)
 		},
 	}
-	rootCmd.Flags().String(configFlag, "/Users/lee/wokoWorks/go_code/deso/fx-firewall/config/config.json", "")
+	rootCmd.Flags().String(configFlag, "/Users/lee/wokoWorks/go_code/deso/cosmos-firewall/config/config.json", "")
 	return rootCmd
 }
 
