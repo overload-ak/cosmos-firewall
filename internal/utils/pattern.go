@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"regexp"
@@ -10,19 +10,19 @@ const (
 )
 
 type PathPattern struct {
-	pattern string
+	Pattern string
 	re      *regexp.Regexp
 }
 
-func NewPathPattern(pattern string) *PathPattern {
+func NewPathPattern(pattern string) PathPattern {
 	regexPattern := convertToRegexPattern(pattern)
-	return &PathPattern{
-		pattern: pattern,
+	return PathPattern{
+		Pattern: pattern,
 		re:      regexp.MustCompile(regexPattern),
 	}
 }
 
-func (p *PathPattern) Match(url string) bool {
+func (p PathPattern) Match(url string) bool {
 	return p.re.MatchString(url)
 }
 
