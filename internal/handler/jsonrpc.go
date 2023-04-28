@@ -11,8 +11,8 @@ import (
 	"github.com/tendermint/tendermint/rpc/jsonrpc/server"
 	"github.com/tendermint/tendermint/rpc/jsonrpc/types"
 
-	"github.com/overload-ak/fx-firewall/internal/middleware"
-	"github.com/overload-ak/fx-firewall/logger"
+	"github.com/overload-ak/cosmos-firewall/internal/middleware"
+	"github.com/overload-ak/cosmos-firewall/logger"
 )
 
 func JSONRPCHandler(validator middleware.Validator) http.HandlerFunc {

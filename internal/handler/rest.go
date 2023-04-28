@@ -10,8 +10,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/gogo/protobuf/proto"
 
-	"github.com/overload-ak/fx-firewall/internal/middleware"
-	"github.com/overload-ak/fx-firewall/logger"
+	"github.com/overload-ak/cosmos-firewall/internal/middleware"
+	"github.com/overload-ak/cosmos-firewall/logger"
 )
 
 func RestHandler(validator middleware.Validator) http.HandlerFunc {

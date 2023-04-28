@@ -3,9 +3,9 @@
 VERSION := $(shell echo $(shell git describe --tags --always) | sed 's/^v//')
 COMMIT := $(shell git log -1 --format='%H')
 BuildTime :=$(shell date '+%Y-%m-%dT%H:%M:%SZ%z')
-ldflags = '-X github.com/overload-ak/fx-firewall.Version=$(VERSION) \
-           -X github.com/overload-ak/fx-firewall.Commit=$(COMMIT) \
-           -X github.com/overload-ak/fx-firewall.BuildTime=$(BuildTime) \
+ldflags = '-X github.com/overload-ak/cosmos-firewall.Version=$(VERSION) \
+           -X github.com/overload-ak/cosmos-firewall.Commit=$(COMMIT) \
+           -X github.com/overload-ak/cosmos-firewall.BuildTime=$(BuildTime) \
            -w -s'
            
 BUILDDIR ?= $(CURDIR)/build

@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/overload-ak/fx-firewall/config"
+	"github.com/overload-ak/cosmos-firewall/config"
 )
 
 func TestName(t *testing.T) {
