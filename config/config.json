@@ -1,5 +1,5 @@
 {
-  "chain_id": "FXCORE",
+  "chain_id": "fxcore",
   "json_rpc": [
     "/rpc_endpoint_1",
     "/rpc_endpoint_2"
