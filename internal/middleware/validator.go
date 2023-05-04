@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"github.com/evmos/ethermint/app"
+	"github.com/functionx/fx-core/v4/testutil/helpers"
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/types/tx"
@@ -13,15 +15,18 @@ import (
 	"github.com/overload-ak/cosmos-firewall/internal/utils"
 )
 
+func init() {
+	chain.RegisterApplication("fxcore", helpers.Setup(true, false))
+	chain.RegisterApplication("ethermint", app.Setup(true, nil))
+}
+
 type Validator struct {
-	chain chain.IChain
+	chain *chain.Chain
 	cfg   *config.Config
 }
 
 func NewValidator(cfg *config.Config) Validator {
-	validator := Validator{cfg: cfg}
-	validator.chain = chain.CreateChainFactory(validator.cfg.ChainID, validator.cfg.JSONRPC, validator.cfg.GRPC, validator.cfg.Rest, validator.cfg.Whitelist)
-	return validator
+	return Validator{chain: chain.NewChain(chain.GetApplication(cfg.ChainID)), cfg: cfg}
 }
 
 func (v Validator) IsJSONPRCPathAllowed(path string) bool {
