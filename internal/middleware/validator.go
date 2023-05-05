@@ -1,8 +1,6 @@
 package middleware
 
 import (
-	"github.com/evmos/ethermint/app"
-	"github.com/functionx/fx-core/v4/testutil/helpers"
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/types/tx"
@@ -11,49 +9,48 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/overload-ak/cosmos-firewall/config"
-	"github.com/overload-ak/cosmos-firewall/internal/chain"
 	"github.com/overload-ak/cosmos-firewall/internal/utils"
+	"github.com/overload-ak/cosmos-firewall/logger"
 )
 
-func init() {
-	chain.RegisterApplication("fxcore", helpers.Setup(true, false))
-	chain.RegisterApplication("ethermint", app.Setup(true, nil))
-}
-
 type Validator struct {
-	chain *chain.Chain
-	cfg   *config.Config
+	Routers *Routers
+	Cfg     *config.Config
 }
 
 func NewValidator(cfg *config.Config) Validator {
-	return Validator{chain: chain.NewChain(chain.GetApplication(cfg.ChainID)), cfg: cfg}
+	routers, err := NewRouters(cfg.Chain.ChainID)
+	if err != nil {
+		panic(err)
+	}
+	return Validator{Routers: routers, Cfg: cfg}
 }
 
-func (v Validator) IsJSONPRCPathAllowed(path string) bool {
-	for _, p := range v.chain.GetJSONRPCPaths() {
-		if strings.EqualFold(p, path) {
+func (v Validator) IsJSONPRCRouterAllowed(router string) bool {
+	for _, p := range v.Routers.GetRPCRouters() {
+		if strings.EqualFold(p, router) {
 			return true
 		}
 	}
 	return false
 }
 
-func (v Validator) IsGRPCPathAllowed(path string) bool {
-	for _, p := range v.chain.GetGRPCPaths() {
-		if strings.EqualFold(p, path) {
+func (v Validator) IsGRPCRouterAllowed(router string) bool {
+	for _, p := range v.Routers.GetGRPCRouters() {
+		if strings.EqualFold(p, router) {
 			return true
 		}
 	}
 	return false
 }
 
-func (v Validator) IsRESTPathAllowed(path string) bool {
-	pathPatterns := make([]utils.PathPattern, 0, len(v.chain.GetRESTPaths()))
-	for _, p := range v.chain.GetRESTPaths() {
-		pathPatterns = append(pathPatterns, utils.NewPathPattern(p))
+func (v Validator) IsRESTRouterAllowed(router string) bool {
+	patterns := make([]utils.PathPattern, 0, len(v.Routers.GetRESTRouters()))
+	for _, p := range v.Routers.GetRESTRouters() {
+		patterns = append(patterns, utils.NewPathPattern(p))
 	}
-	for _, pattern := range pathPatterns {
-		if pattern.Match(path) {
+	for _, pattern := range patterns {
+		if pattern.Match(router) {
 			return true
 		}
 	}
@@ -65,7 +62,7 @@ func (v Validator) CheckTxBytes(txBytes []byte) error {
 	if err := proto.Unmarshal(txBytes, &txRaw); err != nil {
 		return errors.Wrapf(err, "proto unmarshal txBytes")
 	}
-	if len(txRaw.Signatures) <= 0 {
+	if len(txRaw.Signatures) < v.Cfg.Chain.MinimumSignatures {
 		return errors.New("signatures is empty")
 	}
 	for _, signature := range txRaw.Signatures {
@@ -77,19 +74,23 @@ func (v Validator) CheckTxBytes(txBytes []byte) error {
 	if err := proto.Unmarshal(txRaw.AuthInfoBytes, &authInfo); err != nil {
 		return errors.Wrapf(err, "proto unmarshal authInfo")
 	}
-	if authInfo.Fee.GasLimit < 30000 {
+	if authInfo.Fee.GasLimit < v.Cfg.Chain.MinimumGasLimit {
 		return errors.New("GasLimit is too small")
 	}
 	if err := v.CheckTxAuthInfo(authInfo); err != nil {
 		return errors.Wrapf(err, "check txAuthInfo")
 	}
-
 	txBody := tx.TxBody{}
 	if err := proto.Unmarshal(txRaw.BodyBytes, &txBody); err != nil {
 		return errors.Wrapf(err, "proto unmarshal txBody")
 	}
-	// with whitelist
-	// feeFreeWhitelist := FeeFreeWhitelist(txBody)
+	if !checkWhiteRouters(txBody, v.Cfg.Chain.WhiteRouters) {
+		fee := v.Cfg.Chain.GetMinFee()
+		if authInfo.Fee == nil || !authInfo.Fee.Amount.IsAnyGTE(fee) {
+			logger.Warnf("==> fee is too low expect: %s, actual:%s", authInfo.Fee.Amount.String(), fee.String())
+			return errors.New("fee is too low")
+		}
+	}
 	if err := v.CheckTxBody(txBody); err != nil {
 		return errors.Wrapf(err, "check txBody")
 	}
@@ -97,16 +98,13 @@ func (v Validator) CheckTxBytes(txBytes []byte) error {
 }
 
 func (v Validator) CheckTxBody(txBody tx.TxBody) error {
-	if len(txBody.Memo) > 256 {
+	if len(txBody.Memo) > v.Cfg.Chain.MaxMemo {
 		return errors.New("memo field length exceeds limit")
 	}
-	//if txBody.TimeoutHeight > 0 {
-	//	return One, "Set transaction timeout block height."
-	//}
-	if len(txBody.ExtensionOptions) > 0 {
+	if v.Cfg.Chain.ExtensionOptions == 0 && len(txBody.ExtensionOptions) > 0 {
 		return errors.New("fill in illegal field ExtensionOptions")
 	}
-	if len(txBody.NonCriticalExtensionOptions) > 0 {
+	if v.Cfg.Chain.NonCriticalExtensionOptions == 0 && len(txBody.NonCriticalExtensionOptions) > 0 {
 		return errors.New("fill in illegal field NonCriticalExtensionOptions")
 	}
 	if len(txBody.Messages) <= 0 {
@@ -116,7 +114,7 @@ func (v Validator) CheckTxBody(txBody tx.TxBody) error {
 		if message.TypeUrl == "" {
 			return errors.New("message type url is empty")
 		}
-		if !v.IsGRPCPathAllowed(message.TypeUrl) {
+		if !v.IsGRPCRouterAllowed(message.TypeUrl) {
 			return errors.New("unsupported transaction message type")
 		}
 	}
@@ -124,21 +122,20 @@ func (v Validator) CheckTxBody(txBody tx.TxBody) error {
 }
 
 func (v Validator) CheckTxAuthInfo(authInfo tx.AuthInfo) error {
-	if authInfo.Fee.Granter != "" {
+	if v.Cfg.Chain.Granter == 0 && authInfo.Fee.Granter != "" {
 		return errors.New("fill in illegal field Granter")
 	}
-	if authInfo.Fee.Payer != "" {
+	if v.Cfg.Chain.Payer == 0 && authInfo.Fee.Payer != "" {
 		return errors.New("set Payer, non-normal client request")
 	}
-	if len(authInfo.SignerInfos) != 1 {
+	if len(authInfo.SignerInfos) < v.Cfg.Chain.SignerInfos {
 		return errors.New("multiple SignerInfos, non-normal client request")
 	}
 	for _, info := range authInfo.SignerInfos {
 		if info.PublicKey == nil {
 			return errors.New("public key is empty")
 		}
-		if info.PublicKey.TypeUrl != "/cosmos.crypto.secp256k1.PubKey" &&
-			info.PublicKey.TypeUrl != "/ethermint.crypto.v1.ethsecp256k1.PubKey" {
+		if !checkPublicKeyTypeUrl(info.PublicKey.TypeUrl, v.Cfg.Chain.PublicKeyTypeURL) {
 			return errors.New("illegal public key type")
 		}
 		if len(info.PublicKey.Value) != 35 {
@@ -153,4 +150,24 @@ func (v Validator) CheckTxAuthInfo(authInfo tx.AuthInfo) error {
 		}
 	}
 	return nil
+}
+
+func checkPublicKeyTypeUrl(typeUrl string, publicKeyTypeURL []string) bool {
+	for _, url := range publicKeyTypeURL {
+		if strings.EqualFold(url, typeUrl) {
+			return true
+		}
+	}
+	return false
+}
+
+func checkWhiteRouters(txBody tx.TxBody, whiteRouters []string) bool {
+	for _, message := range txBody.Messages {
+		for _, router := range whiteRouters {
+			if strings.EqualFold(message.TypeUrl, router) {
+				return true
+			}
+		}
+	}
+	return false
 }
