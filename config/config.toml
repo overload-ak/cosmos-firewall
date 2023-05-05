@@ -1,0 +1,65 @@
+
+# Output level for logging, including package level options
+log_level = "info"
+
+# Address defines the rpc server to listen on.
+rpc_address = "0.0.0.0:26657"
+
+# Address defines the gRPC server address to bind to.
+grpc_address = "0.0.0.0:9090"
+
+# Address defines the API server to listen on.
+rest_address = "0.0.0.0:1317"
+
+[chain]
+
+# the network chain ID
+chain_id = "fxcore"
+
+# whether to forward the request to the chain
+forward = false
+
+# JSON RPC address of Chain. (if forward is true, this value is required)
+json_rpc = ""
+
+# GRPC address of Chain. (if forward is true, this value is required)
+grpc = ""
+
+# REST address of Chain. (if forward is true, this value is required)
+rest = ""
+
+
+# minimum gas limit for a successful transaction
+minimum_gas_limit = ""
+
+# minimum fee for a successful transaction
+minimum_fee = ""
+
+# maximum size of a memo transaction passed
+max_memo = 256
+
+# no need to verify transaction routers
+white_routers = [
+
+]
+
+# limit the number of extension options
+extension_options = 0
+
+# limit the number of non-critical extension options
+non_critical_extension_options = 0
+
+# is granter set (default value is 0 for not set, 1 for set)
+granter = 0
+
+# is payer set (default value is 0 for not set, 1 for set)
+payer = 0
+
+# signer_infos defines the number of signers for the signature
+signer_infos = 1
+
+# minimum signature List Length
+minimum_signatures = 1
+
+# supported Public Key Types
+public_key_type_url = ["/cosmos.crypto.secp256k1.PubKey","/ethermint.crypto.v1.ethsecp256k1.PubKey"]

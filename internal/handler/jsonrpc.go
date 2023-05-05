@@ -25,7 +25,7 @@ func JSONRPCHandler(validator middleware.Validator) http.HandlerFunc {
 		logger.Infof("JSONRPC Method: [%s], RequestURI: [%s]", r.Method, r.URL.RequestURI())
 		logger.Info("JSONRPC request body base64: ", base64.StdEncoding.EncodeToString(body))
 		path := r.URL.Path
-		if !validator.IsJSONPRCPathAllowed(path) {
+		if !validator.IsJSONPRCRouterAllowed(path) {
 			jsonRpcResponse(w, http.StatusMethodNotAllowed, types.RPCMethodNotFoundError(nil))
 			return
 		}

@@ -25,7 +25,7 @@ func RestHandler(validator middleware.Validator) http.HandlerFunc {
 		logger.Info("REST request body base64: ", base64.StdEncoding.EncodeToString(body))
 		url := request.URL.RequestURI()
 
-		if !validator.IsRESTPathAllowed(url) {
+		if !validator.IsRESTRouterAllowed(url) {
 			restResponse(writer, http.StatusMethodNotAllowed, "method not allowed", nil)
 			return
 		}

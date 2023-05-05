@@ -4,11 +4,11 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
-	"github.com/cosmos/cosmos-sdk/types"
 	"io"
 	"net/http"
 	"strconv"
 
+	"github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/gogo/protobuf/proto"
 
@@ -40,7 +40,7 @@ func GRPCHandler(validator middleware.Validator) http.HandlerFunc {
 		body = body[0:dataLen] // data
 		url := request.URL.Path
 
-		if !validator.IsGRPCPathAllowed(url) {
+		if !validator.IsGRPCRouterAllowed(url) {
 			grpcResponse(writer, http.StatusMethodNotAllowed, "method not allowed", nil)
 			return
 		}
