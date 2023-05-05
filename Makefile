@@ -24,7 +24,7 @@ go.sum: go.mod
 	go mod download
 
 build: go.sum
-	go build -mod=readonly -v -ldflags $(ldflags) -o $(BUILDDIR)/bin/firewwalld ./cmd/firewwalld
+	go build -mod=readonly -v -ldflags $(ldflags) -o $(BUILDDIR)/bin/firewalld ./cmd/
 	@echo "--> Done building."
 
 build-linux:
@@ -32,8 +32,8 @@ build-linux:
 
 INSTALL_DIR := $(shell go env GOPATH)/bin
 install: build $(INSTALL_DIR)
-	mv $(BUILDDIR)/bin/firewwalld $(shell go env GOPATH)/bin/firewwalld
-	@echo "--> Run \"firewwalld start\" or \"$(shell go env GOPATH)/bin/firewwalld start\" to launch firewwalld."
+	mv $(BUILDDIR)/bin/firewalld $(shell go env GOPATH)/bin/firewalld
+	@echo "--> Run \"firewalld start\" or \"$(shell go env GOPATH)/bin/firewalld start\" to launch firewalld."
 
 $(INSTALL_DIR):
 	@echo "Folder $(INSTALL_DIR) does not exist"
