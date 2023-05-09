@@ -18,19 +18,16 @@ const (
 )
 
 type Config struct {
-	LogLevel    string      `mapstructure:"log_level"`
-	RPCAddress  string      `mapstructure:"rpc_address"`
-	GRPCAddress string      `mapstructure:"grpc_address"`
-	RestAddress string      `mapstructure:"rest_address"`
-	Chain       ChainConfig `mapstructure:"chain"`
+	LogLevel    string        `mapstructure:"log_level"`
+	RPCAddress  string        `mapstructure:"rpc_address"`
+	GRPCAddress string        `mapstructure:"grpc_address"`
+	RestAddress string        `mapstructure:"rest_address"`
+	Chain       ChainConfig   `mapstructure:"chain"`
+	Forward     ForwardConfig `mapstructure:"forward"`
 }
 
 type ChainConfig struct {
 	ChainID                     string   `mapstructure:"chain_id"`
-	Forward                     bool     `mapstructure:"forward"`
-	JSONRPC                     string   `mapstructure:"json_rpc"`
-	GRPC                        string   `mapstructure:"grpc"`
-	Rest                        string   `mapstructure:"rest"`
 	MinimumGasLimit             uint64   `mapstructure:"minimum_gas_limit"`
 	MinimumFee                  string   `mapstructure:"minimum_fee"`
 	MaxMemo                     int      `mapstructure:"max_memo"`
@@ -42,6 +39,16 @@ type ChainConfig struct {
 	SignerInfos                 int      `mapstructure:"signer_infos"`
 	MinimumSignatures           int      `mapstructure:"minimum_signatures"`
 	PublicKeyTypeURL            []string `mapstructure:"public_key_type_url"`
+}
+
+type ForwardConfig struct {
+	Enable      bool   `mapstructure:"enable"`
+	JSONRPC     string `mapstructure:"json_rpc"`
+	GRPC        string `mapstructure:"grpc"`
+	Rest        string `mapstructure:"rest"`
+	TimeOut     int    `mapstructure:"time_out"`
+	EnableProxy bool   `mapstructure:"enable_proxy"`
+	Proxy       string `mapstructure:"proxy"`
 }
 
 // SetMinFee sets minimum gas prices.
@@ -75,10 +82,6 @@ func DefaultConfig() *Config {
 		RestAddress: DefaultRESTAddress,
 		Chain: ChainConfig{
 			ChainID:                     "fxcore",
-			Forward:                     false,
-			JSONRPC:                     "",
-			GRPC:                        "",
-			Rest:                        "",
 			MinimumGasLimit:             DefaultMinGasLimit,
 			MinimumFee:                  "",
 			MaxMemo:                     256,
@@ -91,19 +94,33 @@ func DefaultConfig() *Config {
 			MinimumSignatures:           1,
 			PublicKeyTypeURL:            []string{"/cosmos.crypto.secp256k1.PubKey", "/ethermint.crypto.v1.ethsecp256k1.PubKey"},
 		},
+		Forward: ForwardConfig{
+			Enable:      false,
+			JSONRPC:     "",
+			GRPC:        "",
+			Rest:        "",
+			TimeOut:     5,
+			EnableProxy: false,
+			Proxy:       "",
+		},
 	}
 }
 
 func (c *Config) ValidateBasic() error {
-	if c.Chain.Forward {
-		if c.Chain.JSONRPC == "" {
+	if c.Forward.Enable {
+		if c.Forward.JSONRPC == "" {
 			return fmt.Errorf("json rpc address is required")
 		}
-		if c.Chain.GRPC == "" {
+		if c.Forward.GRPC == "" {
 			return fmt.Errorf("grpc address is required")
 		}
-		if c.Chain.Rest == "" {
+		if c.Forward.Rest == "" {
 			return fmt.Errorf("rest address is required")
+		}
+	}
+	if c.Forward.EnableProxy {
+		if c.Forward.Proxy == "" {
+			return fmt.Errorf("proxy address is required")
 		}
 	}
 	return nil
