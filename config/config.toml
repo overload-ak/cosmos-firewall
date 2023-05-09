@@ -16,21 +16,8 @@ rest_address = "0.0.0.0:1317"
 # the network chain ID
 chain_id = "fxcore"
 
-# whether to forward the request to the chain
-forward = false
-
-# JSON RPC address of Chain. (if forward is true, this value is required)
-json_rpc = ""
-
-# GRPC address of Chain. (if forward is true, this value is required)
-grpc = ""
-
-# REST address of Chain. (if forward is true, this value is required)
-rest = ""
-
-
 # minimum gas limit for a successful transaction
-minimum_gas_limit = ""
+minimum_gas_limit = 30000
 
 # minimum fee for a successful transaction
 minimum_fee = ""
@@ -63,3 +50,25 @@ minimum_signatures = 1
 
 # supported Public Key Types
 public_key_type_url = ["/cosmos.crypto.secp256k1.PubKey","/ethermint.crypto.v1.ethsecp256k1.PubKey"]
+
+[forward]
+# Do you need to forward the request
+enable = false
+
+# JSON RPC address of Chain. (if forward is true, this value is required)
+json_rpc = "https://testnet-fx-json.functionx.io:26657"
+
+# GRPC address of Chain. (if forward is true, this value is required)
+grpc = "http://127.0.0.1:9090"
+
+# REST address of Chain. (if forward is true, this value is required)
+rest = "https://testnet-fx-rest.functionx.io:1317"
+
+# Timeout for forwarding request
+time_out = 30
+
+# Do you need to enable proxy
+enable_proxy = false
+
+# Proxy address
+proxy = ""

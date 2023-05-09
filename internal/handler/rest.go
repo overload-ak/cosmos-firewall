@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -14,7 +15,7 @@ import (
 	"github.com/overload-ak/cosmos-firewall/logger"
 )
 
-func RestHandler(validator middleware.Validator) http.HandlerFunc {
+func RestHandler(validator middleware.Validator, forwarder middleware.Forwarder) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		body, err := io.ReadAll(request.Body)
 		if err != nil {
@@ -103,8 +104,14 @@ func RestHandler(validator middleware.Validator) http.HandlerFunc {
 				return
 			}
 		}
-		// todo success response
-		restResponse(writer, http.StatusOK, "success", nil)
+		if forwarder.Enable() {
+			if err = forwarder.Request(middleware.RESTREQUEST, writer, request, bytes.NewReader(body)); err != nil {
+				restResponse(writer, http.StatusInternalServerError, fmt.Sprintf("forwarder request error: %s", err.Error()), nil)
+				return
+			}
+			return
+		}
+		restResponse(writer, http.StatusOK, "SUCCESS", nil)
 	}
 }
 

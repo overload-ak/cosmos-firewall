@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -15,7 +16,7 @@ import (
 	"github.com/overload-ak/cosmos-firewall/logger"
 )
 
-func JSONRPCHandler(validator middleware.Validator) http.HandlerFunc {
+func JSONRPCHandler(validator middleware.Validator, forwarder middleware.Forwarder) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -29,7 +30,7 @@ func JSONRPCHandler(validator middleware.Validator) http.HandlerFunc {
 			jsonRpcResponse(w, http.StatusMethodNotAllowed, types.RPCMethodNotFoundError(nil))
 			return
 		}
-		if len(path) < 1 {
+		if r.Method == http.MethodPost {
 			var requests []types.RPCRequest
 			if err = json.Unmarshal(body, &requests); err != nil {
 				var request types.RPCRequest
@@ -64,8 +65,14 @@ func JSONRPCHandler(validator middleware.Validator) http.HandlerFunc {
 				}
 			}
 		}
-		// todo success response
-		jsonRpcResponse(w, http.StatusOK, types.NewRPCSuccessResponse(nil, "success"))
+		if forwarder.Enable() {
+			if err = forwarder.Request(middleware.JSONREQUEST, w, r, bytes.NewReader(body)); err != nil {
+				jsonRpcResponse(w, http.StatusInternalServerError, types.RPCInternalError(nil, err))
+				return
+			}
+			return
+		}
+		jsonRpcResponse(w, http.StatusOK, types.NewRPCSuccessResponse(nil, "SUCCESS"))
 	}
 }
 

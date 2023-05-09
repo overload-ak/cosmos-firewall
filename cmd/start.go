@@ -55,8 +55,9 @@ func start() *cobra.Command {
 
 func Run(config *config.Config) error {
 	validator := middleware.NewValidator(config)
-	go RunJSONRPCServer(validator)
-	go RunRESTServer(validator)
+	forwarder := middleware.NewForwarder(config.Forward)
+	go RunJSONRPCServer(validator, forwarder)
+	go RunRESTServer(validator, forwarder)
 	return RunGRPCServer(validator)
 }
 
@@ -76,16 +77,16 @@ func RunGRPCServer(validator middleware.Validator) error {
 	return nil
 }
 
-func RunRESTServer(validator middleware.Validator) {
+func RunRESTServer(validator middleware.Validator, forwarder middleware.Forwarder) {
 	logger.Infof("start REST server listening on %v", validator.Cfg.RestAddress)
-	if err := http.ListenAndServe(validator.Cfg.RestAddress, handler.RestHandler(validator)); err != nil {
+	if err := http.ListenAndServe(validator.Cfg.RestAddress, handler.RestHandler(validator, forwarder)); err != nil {
 		panic(err)
 	}
 }
 
-func RunJSONRPCServer(validator middleware.Validator) {
+func RunJSONRPCServer(validator middleware.Validator, forwarder middleware.Forwarder) {
 	logger.Infof("start JSON-RPC server listening on %v", validator.Cfg.RPCAddress)
-	if err := http.ListenAndServe(validator.Cfg.RPCAddress, handler.JSONRPCHandler(validator)); err != nil {
+	if err := http.ListenAndServe(validator.Cfg.RPCAddress, handler.JSONRPCHandler(validator, forwarder)); err != nil {
 		panic(err)
 	}
 }
