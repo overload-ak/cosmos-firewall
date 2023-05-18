@@ -11,9 +11,9 @@ import (
 const ETHERMINT = "ethermint"
 
 func init() {
-	dbCreator := func(name string) (Application, error) {
+	applicationCreator := func() (Application, error) {
 		return app.NewEthermintApp(nil, nil, nil, true, map[int64]bool{}, os.TempDir(), 5,
 			encoding.MakeConfig(app.ModuleBasics), simapp.EmptyAppOptions{}), nil
 	}
-	registerAppCreator(ETHERMINT, dbCreator)
+	registerAppCreator(ETHERMINT, applicationCreator)
 }
