@@ -8,7 +8,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/server/types"
 )
 
-type appCreator func(chainId string) (Application, error)
+type appCreator func() (Application, error)
 
 var applications = map[string]appCreator{}
 
@@ -31,7 +31,7 @@ func NewApplication(chainId string) (Application, error) {
 		return nil, fmt.Errorf("unknown  chainId %s, expected one of %v",
 			chainId, strings.Join(keys, ","))
 	}
-	app, err := creator(chainId)
+	app, err := creator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize application: %w", err)
 	}
