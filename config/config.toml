@@ -53,13 +53,13 @@ public_key_type_url = ["/cosmos.crypto.secp256k1.PubKey","/ethermint.crypto.v1.e
 
 [forward]
 # Do you need to forward the request
-enable = false
+enable = true
 
 # JSON RPC address of Chain. (if forward is true, this value is required)
 json_rpc = "https://testnet-fx-json.functionx.io:26657"
 
 # GRPC address of Chain. (if forward is true, this value is required)
-grpc = "http://127.0.0.1:9090"
+grpc = "https://testnet-fx-grpc.functionx.io:9090"
 
 # REST address of Chain. (if forward is true, this value is required)
 rest = "https://testnet-fx-rest.functionx.io:1317"

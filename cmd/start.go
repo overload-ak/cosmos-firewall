@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -9,9 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 
 	"github.com/overload-ak/cosmos-firewall/config"
 	handler "github.com/overload-ak/cosmos-firewall/internal/handler"
@@ -88,23 +88,21 @@ func ListenForQuitSignals(cancelFn context.CancelFunc) {
 
 func RunGRPCServer(ctx context.Context, validator middleware.Validator, forwarder middleware.Forwarder) error {
 	logger.Infof("start GRPC server listening on %v", validator.Cfg.GRPCAddress)
-	h2s := &http2.Server{}
-	srv := &http.Server{
-		Addr:    validator.Cfg.GRPCAddress,
-		Handler: h2c.NewHandler(handler.GRPCHandler(validator, forwarder), h2s),
-	}
-	if err := http2.ConfigureServer(srv, &http2.Server{}); err != nil {
+	grpcSrv := grpc.NewServer(grpc.CustomCodec(handler.Codec()), grpc.UnknownServiceHandler(handler.TransparentHandler(validator, forwarder))) //nolint:staticcheck
+	addr, err := net.Listen("tcp", validator.Cfg.GRPCAddress)
+	if err != nil {
 		return err
 	}
 	errCh := make(chan error)
 	go func() {
-		errCh <- srv.ListenAndServe()
+		errCh <- grpcSrv.Serve(addr)
 	}()
 	select {
 	case <-ctx.Done():
 		logger.Info("stopping GRPC  server...", "address", validator.Cfg.RestAddress)
-		return srv.Shutdown(ctx)
-	case err := <-errCh:
+		grpcSrv.Stop()
+		return nil
+	case err = <-errCh:
 		logger.Error("failed to start GRPC server", "err", err)
 		return err
 	}

@@ -7,6 +7,9 @@ import (
 	"net/url"
 	"time"
 
+	fxgrpc "github.com/functionx/fx-core/v4/client/grpc"
+	"google.golang.org/grpc"
+
 	"github.com/overload-ak/cosmos-firewall/config"
 )
 
@@ -21,6 +24,7 @@ const (
 type Forwarder struct {
 	enable     bool
 	client     *http.Client
+	grpcClient *grpc.ClientConn
 	jsonrpcURL string
 	grpcURL    string
 	restURL    string
@@ -39,9 +43,14 @@ func NewForwarder(forwardConfig config.ForwardConfig) Forwarder {
 		transport.Proxy = http.ProxyURL(proxyURL)
 		httpClient.Transport = transport
 	}
+	grpcClient, err := fxgrpc.NewGrpcConn(forwardConfig.GRPC)
+	if err != nil {
+		panic(err)
+	}
 	return Forwarder{
 		enable:     forwardConfig.Enable,
 		client:     httpClient,
+		grpcClient: grpcClient,
 		jsonrpcURL: forwardConfig.JSONRPC,
 		grpcURL:    forwardConfig.GRPC,
 		restURL:    forwardConfig.Rest,
@@ -52,12 +61,12 @@ func (f *Forwarder) Enable() bool {
 	return f.enable
 }
 
-func (f *Forwarder) Request(request TargetRequest, w http.ResponseWriter, r *http.Request, body io.Reader) error {
+func (f *Forwarder) Request(request TargetRequest, w http.ResponseWriter, r *http.Request) error {
 	targetURL, err := f.switchTargetURL(request)
 	if err != nil {
 		return err
 	}
-	newReq, err := http.NewRequest(r.Method, fmt.Sprintf("%s%s", targetURL, r.URL.Path), body)
+	newReq, err := http.NewRequest(r.Method, fmt.Sprintf("%s%s", targetURL, r.URL.Path), r.Body)
 	if err != nil {
 		return err
 	}
