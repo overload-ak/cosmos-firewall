@@ -1,15 +1,20 @@
 package main
 
 import (
+	"context"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/overload-ak/cosmos-firewall/config"
-	"github.com/overload-ak/cosmos-firewall/internal/handler"
+	handler "github.com/overload-ak/cosmos-firewall/internal/handler"
 	"github.com/overload-ak/cosmos-firewall/internal/middleware"
 	"github.com/overload-ak/cosmos-firewall/logger"
 )
@@ -56,37 +61,85 @@ func start() *cobra.Command {
 func Run(config *config.Config) error {
 	validator := middleware.NewValidator(config)
 	forwarder := middleware.NewForwarder(config.Forward)
-	go RunJSONRPCServer(validator, forwarder)
-	go RunRESTServer(validator, forwarder)
-	return RunGRPCServer(validator)
+	ctx, cancelFn := context.WithCancel(context.Background())
+	g, ctx := errgroup.WithContext(ctx)
+	ListenForQuitSignals(cancelFn)
+	g.Go(func() error {
+		return RunJSONRPCServer(ctx, validator, forwarder)
+	})
+	g.Go(func() error {
+		return RunRESTServer(ctx, validator, forwarder)
+	})
+	g.Go(func() error {
+		return RunGRPCServer(ctx, validator, forwarder)
+	})
+	return g.Wait()
 }
 
-func RunGRPCServer(validator middleware.Validator) error {
+func ListenForQuitSignals(cancelFn context.CancelFunc) {
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sig := <-sigCh
+		cancelFn()
+		logger.Info("caught signal", "signal", sig.String())
+	}()
+}
+
+func RunGRPCServer(ctx context.Context, validator middleware.Validator, forwarder middleware.Forwarder) error {
 	logger.Infof("start GRPC server listening on %v", validator.Cfg.GRPCAddress)
 	h2s := &http2.Server{}
 	srv := &http.Server{
 		Addr:    validator.Cfg.GRPCAddress,
-		Handler: h2c.NewHandler(handler.GRPCHandler(validator), h2s),
+		Handler: h2c.NewHandler(handler.GRPCHandler(validator, forwarder), h2s),
 	}
 	if err := http2.ConfigureServer(srv, &http2.Server{}); err != nil {
 		return err
 	}
-	if err := srv.ListenAndServe(); err != nil {
+	errCh := make(chan error)
+	go func() {
+		errCh <- srv.ListenAndServe()
+	}()
+	select {
+	case <-ctx.Done():
+		logger.Info("stopping GRPC  server...", "address", validator.Cfg.RestAddress)
+		return srv.Shutdown(ctx)
+	case err := <-errCh:
+		logger.Error("failed to start GRPC server", "err", err)
 		return err
 	}
-	return nil
 }
 
-func RunRESTServer(validator middleware.Validator, forwarder middleware.Forwarder) {
+func RunRESTServer(ctx context.Context, validator middleware.Validator, forwarder middleware.Forwarder) error {
 	logger.Infof("start REST server listening on %v", validator.Cfg.RestAddress)
-	if err := http.ListenAndServe(validator.Cfg.RestAddress, handler.RestHandler(validator, forwarder)); err != nil {
-		panic(err)
+	srv := &http.Server{Addr: validator.Cfg.RestAddress, Handler: handler.RestHandler(validator, forwarder)}
+	errCh := make(chan error)
+	go func() {
+		errCh <- srv.ListenAndServe()
+	}()
+	select {
+	case <-ctx.Done():
+		logger.Info("stopping REST  server...", "address", validator.Cfg.RestAddress)
+		return srv.Shutdown(ctx)
+	case err := <-errCh:
+		logger.Error("failed to start REST server", "err", err)
+		return err
 	}
 }
 
-func RunJSONRPCServer(validator middleware.Validator, forwarder middleware.Forwarder) {
+func RunJSONRPCServer(ctx context.Context, validator middleware.Validator, forwarder middleware.Forwarder) error {
 	logger.Infof("start JSON-RPC server listening on %v", validator.Cfg.RPCAddress)
-	if err := http.ListenAndServe(validator.Cfg.RPCAddress, handler.JSONRPCHandler(validator, forwarder)); err != nil {
-		panic(err)
+	srv := &http.Server{Addr: validator.Cfg.RPCAddress, Handler: handler.JSONRPCHandler(validator, forwarder)}
+	errCh := make(chan error)
+	go func() {
+		errCh <- srv.ListenAndServe()
+	}()
+	select {
+	case <-ctx.Done():
+		logger.Info("stopping JSON-RPC  server...", "address", validator.Cfg.RPCAddress)
+		return srv.Shutdown(ctx)
+	case err := <-errCh:
+		logger.Error("failed to start JSON-RPC server", "err", err)
+		return err
 	}
 }
