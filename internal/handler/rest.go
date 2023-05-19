@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -17,7 +16,8 @@ import (
 
 func RestHandler(validator middleware.Validator, forwarder middleware.Forwarder) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		body, err := io.ReadAll(request.Body)
+		bodyCopy := request.Body
+		body, err := io.ReadAll(bodyCopy)
 		if err != nil {
 			restResponse(writer, http.StatusInternalServerError, "read all body error: ", nil)
 			return
@@ -105,7 +105,7 @@ func RestHandler(validator middleware.Validator, forwarder middleware.Forwarder)
 			}
 		}
 		if forwarder.Enable() {
-			if err = forwarder.Request(middleware.RESTREQUEST, writer, request, bytes.NewReader(body)); err != nil {
+			if err = forwarder.Request(middleware.RESTREQUEST, writer, request); err != nil {
 				restResponse(writer, http.StatusInternalServerError, fmt.Sprintf("forwarder request error: %s", err.Error()), nil)
 				return
 			}

@@ -6,17 +6,20 @@ require (
 	github.com/cosmos/cosmos-sdk v0.46.12
 	github.com/evmos/ethermint v0.22.0
 	github.com/fatih/color v1.13.0
+	github.com/fullstorydev/grpcurl v1.8.7
 	github.com/functionx/fx-core/v4 v4.0.0-rc1.0.20230425050336-4105dbb19a21
 	github.com/gogo/protobuf v1.3.3
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
+	github.com/jhump/protoreflect v1.12.1-0.20220721211354-060cc04fc18b
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.15.0
 	github.com/stretchr/testify v1.8.2
 	github.com/tendermint/tendermint v0.34.27
 	go.uber.org/zap v1.23.0
-	golang.org/x/net v0.9.0
+	golang.org/x/sync v0.1.0
+	google.golang.org/grpc v1.54.0
 )
 
 require (
@@ -176,8 +179,9 @@ require (
 	go.uber.org/multierr v1.8.0 // indirect
 	golang.org/x/crypto v0.5.0 // indirect
 	golang.org/x/exp v0.0.0-20230131160201-f062dba9d201 // indirect
+	golang.org/x/mod v0.9.0 // indirect
+	golang.org/x/net v0.9.0 // indirect
 	golang.org/x/oauth2 v0.4.0 // indirect
-	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.7.0 // indirect
 	golang.org/x/term v0.7.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
@@ -185,7 +189,6 @@ require (
 	google.golang.org/api v0.107.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f // indirect
-	google.golang.org/grpc v1.54.0 // indirect
 	google.golang.org/protobuf v1.29.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
@@ -196,8 +199,10 @@ require (
 )
 
 replace (
+	github.com/Sirupsen/logrus => github.com/sirupsen/logrus v1.9.2
 	// use cosmos style protobufs
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
+	github.com/jhump/protoreflect => github.com/jhump/protoreflect v1.14.1
 	github.com/tendermint/tendermint => github.com/cometbft/cometbft v0.34.27
 )
 
