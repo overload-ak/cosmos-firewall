@@ -1,23 +1,27 @@
 package middleware
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"time"
 
-	fxgrpc "github.com/functionx/fx-core/v4/client/grpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/google"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 
 	"github.com/overload-ak/cosmos-firewall/config"
+	"github.com/overload-ak/cosmos-firewall/internal/types"
 )
 
 type TargetRequest uint64
 
 const (
 	JSONREQUEST TargetRequest = iota
-	GRPCREQUEST
 	RESTREQUEST
 )
 
@@ -43,7 +47,7 @@ func NewForwarder(forwardConfig config.ForwardConfig) Forwarder {
 		transport.Proxy = http.ProxyURL(proxyURL)
 		httpClient.Transport = transport
 	}
-	grpcClient, err := fxgrpc.NewGrpcConn(forwardConfig.GRPC)
+	grpcClient, err := NewGrpcConn(forwardConfig.GRPC)
 	if err != nil {
 		panic(err)
 	}
@@ -57,11 +61,29 @@ func NewForwarder(forwardConfig config.ForwardConfig) Forwarder {
 	}
 }
 
+func NewGrpcConn(rawUrl string) (*grpc.ClientConn, error) {
+	parseU, err := url.Parse(rawUrl)
+	if err != nil {
+		return nil, err
+	}
+	host := parseU.Host
+	var opts grpc.DialOption
+	if parseU.Scheme == "https" {
+		opts = grpc.WithCredentialsBundle(google.NewDefaultCredentials())
+	} else {
+		opts = grpc.WithTransportCredentials(insecure.NewCredentials())
+	}
+	// nolint
+	grpc.WithDefaultCallOptions(grpc.CallCustomCodec(types.Codec()))
+	// nolint
+	return grpc.Dial(host, opts, grpc.WithCodec(types.Codec()))
+}
+
 func (f *Forwarder) Enable() bool {
 	return f.enable
 }
 
-func (f *Forwarder) Request(request TargetRequest, w http.ResponseWriter, r *http.Request) error {
+func (f *Forwarder) HttpRequest(request TargetRequest, w http.ResponseWriter, r *http.Request) error {
 	targetURL, err := f.switchTargetURL(request)
 	if err != nil {
 		return err
@@ -94,13 +116,91 @@ func (f *Forwarder) switchTargetURL(target TargetRequest) (string, error) {
 	switch target {
 	case JSONREQUEST:
 		return f.jsonrpcURL, nil
-	case GRPCREQUEST:
-		return f.grpcURL, nil
 	case RESTREQUEST:
 		return f.restURL, nil
 	default:
 		return "", fmt.Errorf("target request type error")
 	}
+}
+
+func (f *Forwarder) GrpcForward(serverStream grpc.ServerStream, fullMethodName string, frame *types.Frame) error {
+	clientCtx, clientCancel := context.WithCancel(serverStream.Context())
+	defer clientCancel()
+	clientStream, err := grpc.NewClientStream(clientCtx, &grpc.StreamDesc{ServerStreams: true, ClientStreams: true}, f.grpcClient, fullMethodName)
+	if err != nil {
+		return err
+	}
+	s2cErrChan := forwardServerToClient(serverStream, clientStream, frame)
+	c2sErrChan := forwardClientToServer(clientStream, serverStream)
+	for i := 0; i < 2; i++ {
+		select {
+		case s2cErr := <-s2cErrChan:
+			if s2cErr == io.EOF {
+				if err = clientStream.CloseSend(); err != nil {
+					return status.Errorf(codes.Internal, "clientStream close: %v", err.Error())
+				}
+			} else {
+				clientCancel()
+				return status.Errorf(codes.Internal, "failed forwarder s2c: %v", s2cErr)
+			}
+		case c2sErr := <-c2sErrChan:
+			serverStream.SetTrailer(clientStream.Trailer())
+			if c2sErr != io.EOF {
+				return c2sErr
+			}
+			return nil
+		}
+	}
+	return status.Errorf(codes.Internal, "gRPC forwarder should never reach this stage.")
+}
+
+func forwardServerToClient(src grpc.ServerStream, dst grpc.ClientStream, frame *types.Frame) chan error {
+	ret := make(chan error, 1)
+	go func() {
+		f := frame
+		for i := 0; ; i++ {
+			if i > 0 {
+				if err := src.RecvMsg(f); err != nil {
+					ret <- err
+					break
+				}
+			}
+			if err := dst.SendMsg(f); err != nil {
+				ret <- err
+				break
+			}
+		}
+	}()
+	return ret
+}
+
+func forwardClientToServer(src grpc.ClientStream, dst grpc.ServerStream) chan error {
+	ret := make(chan error, 1)
+	go func() {
+		f := &types.Frame{}
+		for i := 0; ; i++ {
+			if err := src.RecvMsg(f); err != nil {
+				ret <- err
+				break
+			}
+			if i == 0 {
+				md, err := src.Header()
+				if err != nil {
+					ret <- err
+					break
+				}
+				if err := dst.SendHeader(md); err != nil {
+					ret <- err
+					break
+				}
+			}
+			if err := dst.SendMsg(f); err != nil {
+				ret <- err
+				break
+			}
+		}
+	}()
+	return ret
 }
 
 func copyHeader(dst, src http.Header) {
