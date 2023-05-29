@@ -9,10 +9,10 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"github.com/overload-ak/cosmos-firewall/internal/middleware"
+	"github.com/overload-ak/cosmos-firewall/internal/types"
 	"github.com/overload-ak/cosmos-firewall/logger"
 )
 
@@ -26,26 +26,29 @@ type handler struct {
 	forwarder middleware.Forwarder
 }
 
-func (h *handler) handler(srv interface{}, serverStream grpc.ServerStream) error {
+func (h *handler) handler(_ interface{}, serverStream grpc.ServerStream) error {
 	fullMethodName, ok := grpc.MethodFromServerStream(serverStream)
 	if !ok {
 		return status.Errorf(codes.Internal, "lowLevelServerStream not exists in context")
 	}
-	streamCopy := serverStream
-	if err := h.exec(streamCopy, fullMethodName); err != nil {
+	f := &types.Frame{}
+	if err := serverStream.RecvMsg(f); err != nil {
 		return err
 	}
-	md, _ := metadata.FromIncomingContext(serverStream.Context())
-	serverStream.SetTrailer(md)
+	if err := h.processRequest(serverStream, fullMethodName, f); err != nil {
+		return err
+	}
+	if h.forwarder.Enable() {
+		return h.forwarder.GrpcForward(serverStream, fullMethodName, f)
+	}
+	if err := serverStream.SendMsg(nil); err != nil {
+		return err
+	}
 	return nil
 }
 
-func (h *handler) exec(stream grpc.ServerStream, fullMethodName string) error {
-	f := &frame{}
-	if err := stream.RecvMsg(f); err != nil {
-		return err
-	}
-	body := f.payload
+func (h *handler) processRequest(serverStream grpc.ServerStream, fullMethodName string, frame *types.Frame) error {
+	body := frame.Payload
 	logger.Infof("GRPC RequestURI: [%s]", fullMethodName)
 	logger.Info("GRPC request body base64: ", base64.StdEncoding.EncodeToString(body))
 	url := fullMethodName
