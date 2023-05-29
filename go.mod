@@ -6,12 +6,10 @@ require (
 	github.com/cosmos/cosmos-sdk v0.46.12
 	github.com/evmos/ethermint v0.22.0
 	github.com/fatih/color v1.13.0
-	github.com/fullstorydev/grpcurl v1.8.7
-	github.com/functionx/fx-core/v4 v4.0.0-rc1.0.20230425050336-4105dbb19a21
+	github.com/functionx/fx-core/v4 v4.2.0
 	github.com/gogo/protobuf v1.3.3
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
-	github.com/jhump/protoreflect v1.12.1-0.20220721211354-060cc04fc18b
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.15.0
@@ -20,6 +18,7 @@ require (
 	go.uber.org/zap v1.23.0
 	golang.org/x/sync v0.1.0
 	google.golang.org/grpc v1.54.0
+	google.golang.org/protobuf v1.29.1
 )
 
 require (
@@ -58,7 +57,7 @@ require (
 	github.com/cosmos/gogoproto v1.4.7 // indirect
 	github.com/cosmos/gorocksdb v1.2.0 // indirect
 	github.com/cosmos/iavl v0.19.5 // indirect
-	github.com/cosmos/ibc-go/v6 v6.1.0 // indirect
+	github.com/cosmos/ibc-go/v6 v6.1.1 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.12.2 // indirect
 	github.com/creachadair/taskgroup v0.3.2 // indirect
 	github.com/danieljoos/wincred v1.1.2 // indirect
@@ -167,8 +166,8 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
-	github.com/tklauser/go-sysconf v0.3.10 // indirect
-	github.com/tklauser/numcpus v0.4.0 // indirect
+	github.com/tklauser/go-sysconf v0.3.11 // indirect
+	github.com/tklauser/numcpus v0.6.0 // indirect
 	github.com/tyler-smith/go-bip39 v1.1.0 // indirect
 	github.com/ulikunitz/xz v0.5.11 // indirect
 	github.com/zondax/hid v0.9.1 // indirect
@@ -189,17 +188,15 @@ require (
 	google.golang.org/api v0.107.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f // indirect
-	google.golang.org/protobuf v1.29.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	nhooyr.io/websocket v1.8.6 // indirect
+	nhooyr.io/websocket v1.8.7 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
 replace (
-	github.com/Sirupsen/logrus => github.com/sirupsen/logrus v1.9.2
 	// use cosmos style protobufs
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 	github.com/jhump/protoreflect => github.com/jhump/protoreflect v1.14.1
@@ -209,5 +206,5 @@ replace (
 // use for precompile
 replace (
 	github.com/ethereum/go-ethereum => github.com/evmos/go-ethereum v1.10.26-evmos-rc1
-	github.com/evmos/ethermint => github.com/functionx/ethermint v0.22.0-fxcore-precompile-rc1
+	github.com/evmos/ethermint => github.com/functionx/ethermint v0.22.0-fxcore-precompile-rc2
 )
