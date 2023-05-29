@@ -105,7 +105,7 @@ func RestHandler(validator middleware.Validator, forwarder middleware.Forwarder)
 			}
 		}
 		if forwarder.Enable() {
-			if err = forwarder.Request(middleware.RESTREQUEST, writer, request); err != nil {
+			if err = forwarder.HttpRequest(middleware.RESTREQUEST, writer, request); err != nil {
 				restResponse(writer, http.StatusInternalServerError, fmt.Sprintf("forwarder request error: %s", err.Error()), nil)
 				return
 			}
