@@ -66,7 +66,7 @@ func JSONRPCHandler(validator middleware.Validator, forwarder middleware.Forward
 			}
 		}
 		if forwarder.Enable() {
-			if err = forwarder.Request(middleware.JSONREQUEST, w, r); err != nil {
+			if err = forwarder.HttpRequest(middleware.JSONREQUEST, w, r); err != nil {
 				jsonRpcResponse(w, http.StatusInternalServerError, types.RPCInternalError(nil, err))
 				return
 			}
