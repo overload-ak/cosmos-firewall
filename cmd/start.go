@@ -16,6 +16,7 @@ import (
 	"github.com/overload-ak/cosmos-firewall/config"
 	handler "github.com/overload-ak/cosmos-firewall/internal/handler"
 	"github.com/overload-ak/cosmos-firewall/internal/middleware"
+	"github.com/overload-ak/cosmos-firewall/internal/types"
 	"github.com/overload-ak/cosmos-firewall/logger"
 )
 
@@ -88,7 +89,7 @@ func ListenForQuitSignals(cancelFn context.CancelFunc) {
 
 func RunGRPCServer(ctx context.Context, validator middleware.Validator, forwarder middleware.Forwarder) error {
 	logger.Infof("start GRPC server listening on %v", validator.Cfg.GRPCAddress)
-	grpcSrv := grpc.NewServer(grpc.CustomCodec(handler.Codec()), grpc.UnknownServiceHandler(handler.TransparentHandler(validator, forwarder))) //nolint:staticcheck
+	grpcSrv := grpc.NewServer(grpc.CustomCodec(types.Codec()), grpc.UnknownServiceHandler(handler.TransparentHandler(validator, forwarder))) //nolint:staticcheck
 	addr, err := net.Listen("tcp", validator.Cfg.GRPCAddress)
 	if err != nil {
 		return err

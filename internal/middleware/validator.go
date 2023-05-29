@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/overload-ak/cosmos-firewall/config"
-	"github.com/overload-ak/cosmos-firewall/internal/utils"
+	"github.com/overload-ak/cosmos-firewall/internal/types"
 	"github.com/overload-ak/cosmos-firewall/logger"
 )
 
@@ -45,9 +45,9 @@ func (v Validator) IsGRPCRouterAllowed(router string) bool {
 }
 
 func (v Validator) IsRESTRouterAllowed(router string) bool {
-	patterns := make([]utils.PathPattern, 0, len(v.Routers.GetRESTRouters()))
+	patterns := make([]types.PathPattern, 0, len(v.Routers.GetRESTRouters()))
 	for _, p := range v.Routers.GetRESTRouters() {
-		patterns = append(patterns, utils.NewPathPattern(p))
+		patterns = append(patterns, types.NewPathPattern(p))
 	}
 	for _, pattern := range patterns {
 		if pattern.Match(router) {
