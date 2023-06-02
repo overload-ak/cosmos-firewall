@@ -26,6 +26,7 @@ func NewRedirect(node *node.Node) *Redirect {
 	return &Redirect{node: node}
 }
 
+// HttpDirector todo choose Light、Full or Archive node
 func (r *Redirect) HttpDirector(ctx context.Context, height int64, fullMethodName string) (*RedirectClient, error) {
 	if r.node == nil {
 		return nil, errors.New("empty node")
@@ -46,11 +47,11 @@ func (r *Redirect) HttpDirector(ctx context.Context, height int64, fullMethodNam
 	return NewRedirectClient(ctx, uri, client, nil), nil
 }
 
+// StreamDirector todo choose Light、Full or Archive node
 func (r *Redirect) StreamDirector(ctx context.Context, height int64, fullMethodName string) (*RedirectClient, error) {
 	if r.node == nil {
 		return nil, errors.New("empty node")
 	}
-	// todo
 	var uri string
 	if len(r.node.FullNodes) > 0 {
 		uri = r.node.FullNodes[0].GetURI()

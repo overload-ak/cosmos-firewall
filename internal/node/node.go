@@ -48,7 +48,7 @@ func NewJSONRPCNode(lightURI, fullURI, archiveURI []string, timeoutSecond, check
 }
 
 func NewRESTNode(lightURI, fullURI, archiveURI []string, timeoutSecond, checkNodeSecond uint) (*Node, error) {
-	if len(lightURI) < 1 && len(fullURI) < 1 && len(archiveURI) < 1 {
+	if len(lightURI) == 0 && len(fullURI) == 0 && len(archiveURI) == 0 {
 		return nil, errors.New("empty json rpc nodes")
 	}
 	lightNodes := batchCreateRESTClient(lightURI, timeoutSecond)
@@ -58,7 +58,7 @@ func NewRESTNode(lightURI, fullURI, archiveURI []string, timeoutSecond, checkNod
 }
 
 func NewGRPCNode(lightURI, fullURI, archiveURI []string, timeoutSecond, checkNodeSecond uint) (*Node, error) {
-	if len(lightURI) < 1 && len(fullURI) < 1 && len(archiveURI) < 1 {
+	if len(lightURI) == 0 && len(fullURI) == 0 && len(archiveURI) == 0 {
 		return nil, errors.New("empty json rpc nodes")
 	}
 	lightNodes := batchCreateGRPCClient(lightURI, timeoutSecond)
