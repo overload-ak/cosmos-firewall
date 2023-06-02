@@ -85,7 +85,7 @@ func NewRedirectClient(ctx context.Context, uri string, httpClient *http.Client,
 }
 
 func (redirect *RedirectClient) HttpRedirect(w http.ResponseWriter, r *http.Request) error {
-	request, err := http.NewRequest(r.Method, fmt.Sprintf("%s%s", redirect.uri, r.URL.Path), r.Body)
+	request, err := http.NewRequest(r.Method, fmt.Sprintf("%s%s", redirect.uri, r.URL.RequestURI()), r.Body)
 	if err != nil {
 		return err
 	}
