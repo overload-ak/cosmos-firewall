@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -17,8 +18,7 @@ import (
 
 func RestHandler(ctx context.Context, validator middleware.Validator, director middleware.Director) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		bodyCopy := request.Body
-		body, err := io.ReadAll(bodyCopy)
+		body, err := io.ReadAll(request.Body)
 		if err != nil {
 			restResponse(writer, http.StatusInternalServerError, "read all body error: ", nil)
 			return
@@ -111,7 +111,7 @@ func RestHandler(ctx context.Context, validator middleware.Validator, director m
 				restResponse(writer, http.StatusMisdirectedRequest, err.Error(), nil)
 				return
 			}
-			if err = client.HttpRedirect(writer, request); err != nil {
+			if err = client.HttpRedirect(writer, request, bytes.NewReader(body)); err != nil {
 				restResponse(writer, http.StatusMisdirectedRequest, err.Error(), nil)
 				return
 			}

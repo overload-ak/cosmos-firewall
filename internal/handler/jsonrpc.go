@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -18,8 +19,7 @@ import (
 
 func JSONRPCHandler(ctx context.Context, validator middleware.Validator, director middleware.Director) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		bodyCopy := r.Body
-		body, err := io.ReadAll(bodyCopy)
+		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			jsonRpcResponse(w, http.StatusInternalServerError, types.RPCInvalidParamsError(nil, err))
 			return
@@ -72,7 +72,7 @@ func JSONRPCHandler(ctx context.Context, validator middleware.Validator, directo
 				jsonRpcResponse(w, http.StatusMisdirectedRequest, types.RPCInternalError(nil, err))
 				return
 			}
-			if err = client.HttpRedirect(w, r); err != nil {
+			if err = client.HttpRedirect(w, r, bytes.NewReader(body)); err != nil {
 				jsonRpcResponse(w, http.StatusMisdirectedRequest, types.RPCInternalError(nil, err))
 				return
 			}
