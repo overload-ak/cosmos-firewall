@@ -68,7 +68,7 @@ func verify() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainId := viper.GetString(flagChainId)
 			requestType := viper.GetString(flagRequestType)
-			validator := middleware.NewValidator(&config.Config{Chain: config.ChainConfig{ChainID: chainId}})
+			validator := middleware.NewValidator(&config.Config{Chain: config.Chain{ChainID: chainId}})
 			isVerify := false
 			switch requestType {
 			case "grpc":
@@ -96,7 +96,7 @@ func list() *cobra.Command {
 		Short: "verify router is allowed in",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			validator := middleware.NewValidator(&config.Config{Chain: config.ChainConfig{ChainID: args[0]}})
+			validator := middleware.NewValidator(&config.Config{Chain: config.Chain{ChainID: args[0]}})
 			var routers []string
 			switch args[1] {
 			case "grpc":

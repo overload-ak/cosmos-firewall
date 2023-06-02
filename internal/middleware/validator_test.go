@@ -10,7 +10,7 @@ import (
 )
 
 func TestValidatorRouters(t *testing.T) {
-	cfg := &config.Config{Chain: config.ChainConfig{ChainID: "fxcore"}}
+	cfg := &config.Config{Chain: config.Chain{ChainID: "fxcore"}}
 	validator := middleware.NewValidator(cfg)
 
 	assert.True(t, validator.IsJSONPRCRouterAllowed("/health"))

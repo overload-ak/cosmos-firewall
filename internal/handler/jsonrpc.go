@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -15,7 +16,7 @@ import (
 	"github.com/overload-ak/cosmos-firewall/logger"
 )
 
-func JSONRPCHandler(validator middleware.Validator, forwarder middleware.Forwarder) http.HandlerFunc {
+func JSONRPCHandler(ctx context.Context, validator middleware.Validator, director middleware.Director) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		bodyCopy := r.Body
 		body, err := io.ReadAll(bodyCopy)
@@ -65,9 +66,14 @@ func JSONRPCHandler(validator middleware.Validator, forwarder middleware.Forward
 				}
 			}
 		}
-		if forwarder.Enable() {
-			if err = forwarder.HttpRequest(middleware.JSONREQUEST, w, r); err != nil {
-				jsonRpcResponse(w, http.StatusInternalServerError, types.RPCInternalError(nil, err))
+		if director != nil {
+			client, err := director(ctx, 1, path)
+			if err != nil {
+				jsonRpcResponse(w, http.StatusMisdirectedRequest, types.RPCInternalError(nil, err))
+				return
+			}
+			if err = client.HttpRedirect(w, r); err != nil {
+				jsonRpcResponse(w, http.StatusMisdirectedRequest, types.RPCInternalError(nil, err))
 				return
 			}
 			return

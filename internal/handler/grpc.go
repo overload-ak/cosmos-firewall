@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 
@@ -16,14 +17,15 @@ import (
 	"github.com/overload-ak/cosmos-firewall/logger"
 )
 
-func TransparentHandler(validator middleware.Validator, forwarder middleware.Forwarder) grpc.StreamHandler {
-	streamer := &handler{validator: validator, forwarder: forwarder}
+func TransparentHandler(ctx context.Context, validator middleware.Validator, director middleware.Director) grpc.StreamHandler {
+	streamer := &handler{ctx: ctx, validator: validator, director: director}
 	return streamer.handler
 }
 
 type handler struct {
+	ctx       context.Context
 	validator middleware.Validator
-	forwarder middleware.Forwarder
+	director  middleware.Director
 }
 
 func (h *handler) handler(_ interface{}, serverStream grpc.ServerStream) error {
@@ -35,11 +37,15 @@ func (h *handler) handler(_ interface{}, serverStream grpc.ServerStream) error {
 	if err := serverStream.RecvMsg(f); err != nil {
 		return err
 	}
-	if err := h.processRequest(serverStream, fullMethodName, f); err != nil {
+	if err := h.processRequest(f, fullMethodName); err != nil {
 		return err
 	}
-	if h.forwarder.Enable() {
-		return h.forwarder.GrpcForward(serverStream, fullMethodName, f)
+	if h.director != nil {
+		grpcClient, err := h.director(h.ctx, 1, fullMethodName)
+		if err != nil {
+			return err
+		}
+		return grpcClient.GrpcRedirect(serverStream, fullMethodName, f)
 	}
 	if err := serverStream.SendMsg(nil); err != nil {
 		return err
@@ -47,7 +53,7 @@ func (h *handler) handler(_ interface{}, serverStream grpc.ServerStream) error {
 	return nil
 }
 
-func (h *handler) processRequest(serverStream grpc.ServerStream, fullMethodName string, frame *types.Frame) error {
+func (h *handler) processRequest(frame *types.Frame, fullMethodName string) error {
 	body := frame.Payload
 	logger.Infof("GRPC RequestURI: [%s]", fullMethodName)
 	logger.Info("GRPC request body base64: ", base64.StdEncoding.EncodeToString(body))

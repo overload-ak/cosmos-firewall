@@ -5,95 +5,92 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"time"
 
+	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/google"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 
-	"github.com/overload-ak/cosmos-firewall/config"
+	"github.com/overload-ak/cosmos-firewall/internal/node"
 	"github.com/overload-ak/cosmos-firewall/internal/types"
 )
 
-type TargetRequest uint64
+type Director func(ctx context.Context, height int64, fullMethodName string) (*RedirectClient, error)
 
-const (
-	JSONREQUEST TargetRequest = iota
-	RESTREQUEST
-)
-
-type Forwarder struct {
-	enable     bool
-	client     *http.Client
-	grpcClient *grpc.ClientConn
-	jsonrpcURL string
-	grpcURL    string
-	restURL    string
+type Redirect struct {
+	node *node.Node
 }
 
-func NewForwarder(forwardConfig config.ForwardConfig) Forwarder {
-	httpClient := &http.Client{
-		Timeout: time.Duration(forwardConfig.TimeOut) * time.Second,
-	}
-	if forwardConfig.EnableProxy {
-		proxyURL, err := url.Parse(forwardConfig.Proxy)
-		if err != nil {
-			panic(err)
-		}
-		transport := http.DefaultTransport.(*http.Transport)
-		transport.Proxy = http.ProxyURL(proxyURL)
-		httpClient.Transport = transport
-	}
-	grpcClient, err := NewGrpcConn(forwardConfig.GRPC)
-	if err != nil {
-		panic(err)
-	}
-	return Forwarder{
-		enable:     forwardConfig.Enable,
-		client:     httpClient,
-		grpcClient: grpcClient,
-		jsonrpcURL: forwardConfig.JSONRPC,
-		grpcURL:    forwardConfig.GRPC,
-		restURL:    forwardConfig.Rest,
-	}
+func NewRedirect(node *node.Node) *Redirect {
+	return &Redirect{node: node}
 }
 
-func NewGrpcConn(rawUrl string) (*grpc.ClientConn, error) {
-	parseU, err := url.Parse(rawUrl)
+func (r *Redirect) HttpDirector(ctx context.Context, height int64, fullMethodName string) (*RedirectClient, error) {
+	if r.node == nil {
+		return nil, errors.New("empty node")
+	}
+	var uri string
+	if len(r.node.FullNodes) > 0 {
+		uri = r.node.FullNodes[0].GetURI()
+	}
+	if len(r.node.LightNodes) > 0 {
+		uri = r.node.LightNodes[0].GetURI()
+	}
+	if len(r.node.ArchiveNodes) > 0 {
+		uri = r.node.ArchiveNodes[0].GetURI()
+	}
+	client := &http.Client{
+		Timeout: time.Duration(r.node.TimeoutSecond) * time.Second,
+	}
+	return NewRedirectClient(ctx, uri, client, nil), nil
+}
+
+func (r *Redirect) StreamDirector(ctx context.Context, height int64, fullMethodName string) (*RedirectClient, error) {
+	if r.node == nil {
+		return nil, errors.New("empty node")
+	}
+	// todo
+	var uri string
+	if len(r.node.FullNodes) > 0 {
+		uri = r.node.FullNodes[0].GetURI()
+	}
+	if len(r.node.LightNodes) > 0 {
+		uri = r.node.LightNodes[0].GetURI()
+	}
+	if len(r.node.ArchiveNodes) > 0 {
+		uri = r.node.ArchiveNodes[0].GetURI()
+	}
+	grpcClient, err := node.NewNodesGrpcClient(uri, r.node.TimeoutSecond)
 	if err != nil {
 		return nil, err
 	}
-	host := parseU.Host
-	var opts grpc.DialOption
-	if parseU.Scheme == "https" {
-		opts = grpc.WithCredentialsBundle(google.NewDefaultCredentials())
-	} else {
-		opts = grpc.WithTransportCredentials(insecure.NewCredentials())
+	return NewRedirectClient(ctx, uri, nil, grpcClient.ClientConn), nil
+}
+
+type RedirectClient struct {
+	ctx context.Context
+	uri string
+	*http.Client
+	*grpc.ClientConn
+}
+
+func NewRedirectClient(ctx context.Context, uri string, httpClient *http.Client, grpcClient *grpc.ClientConn) *RedirectClient {
+	return &RedirectClient{
+		ctx:        ctx,
+		uri:        uri,
+		Client:     httpClient,
+		ClientConn: grpcClient,
 	}
-	// nolint
-	grpc.WithDefaultCallOptions(grpc.CallCustomCodec(types.Codec()))
-	// nolint
-	return grpc.Dial(host, opts, grpc.WithCodec(types.Codec()))
 }
 
-func (f *Forwarder) Enable() bool {
-	return f.enable
-}
-
-func (f *Forwarder) HttpRequest(request TargetRequest, w http.ResponseWriter, r *http.Request) error {
-	targetURL, err := f.switchTargetURL(request)
+func (redirect *RedirectClient) HttpRedirect(w http.ResponseWriter, r *http.Request) error {
+	request, err := http.NewRequest(r.Method, fmt.Sprintf("%s%s", redirect.uri, r.URL.Path), r.Body)
 	if err != nil {
 		return err
 	}
-	newReq, err := http.NewRequest(r.Method, fmt.Sprintf("%s%s", targetURL, r.URL.Path), r.Body)
-	if err != nil {
-		return err
-	}
-	newReq.Header = r.Header
-	resp, err := f.client.Do(newReq)
+	request.Header = r.Header
+	resp, err := redirect.Do(request)
 	if err != nil {
 		return err
 	}
@@ -112,21 +109,10 @@ func (f *Forwarder) HttpRequest(request TargetRequest, w http.ResponseWriter, r 
 	return nil
 }
 
-func (f *Forwarder) switchTargetURL(target TargetRequest) (string, error) {
-	switch target {
-	case JSONREQUEST:
-		return f.jsonrpcURL, nil
-	case RESTREQUEST:
-		return f.restURL, nil
-	default:
-		return "", fmt.Errorf("target request type error")
-	}
-}
-
-func (f *Forwarder) GrpcForward(serverStream grpc.ServerStream, fullMethodName string, frame *types.Frame) error {
+func (redirect *RedirectClient) GrpcRedirect(serverStream grpc.ServerStream, fullMethodName string, frame *types.Frame) error {
 	clientCtx, clientCancel := context.WithCancel(serverStream.Context())
 	defer clientCancel()
-	clientStream, err := grpc.NewClientStream(clientCtx, &grpc.StreamDesc{ServerStreams: true, ClientStreams: true}, f.grpcClient, fullMethodName)
+	clientStream, err := grpc.NewClientStream(clientCtx, &grpc.StreamDesc{ServerStreams: true, ClientStreams: true}, redirect.ClientConn, fullMethodName)
 	if err != nil {
 		return err
 	}
