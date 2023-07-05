@@ -58,8 +58,7 @@ lint:
 	
 
 format: format-goimports
-	find . -name '*.go' -type f -not -path "./build*" -not -path "./contract*" -not -path "./tests/contract*" -not -name "statik.go" -not -name "*.pb.go" -not -name "*.pb.gw.go" | xargs gofumpt -w -l
-	golangci-lint run --fix
+	golangci-lint run --fix --out-format=tab --issues-exit-code=0
 
 format-goimports:
 	@go install github.com/incu6us/goimports-reviser/v3@latest
