@@ -40,8 +40,9 @@ func (h *handler) handler(_ interface{}, serverStream grpc.ServerStream) error {
 	if err := h.processRequest(f, fullMethodName); err != nil {
 		return err
 	}
+	var height int64
 	if h.director != nil {
-		grpcClient, err := h.director(h.ctx, 1, fullMethodName)
+		grpcClient, err := h.director(h.ctx, height)
 		if err != nil {
 			return err
 		}
@@ -107,6 +108,7 @@ func (h *handler) processRequest(frame *types.Frame, fullMethodName string) erro
 		}
 		switch txRequest.Mode {
 		case tx.BroadcastMode_BROADCAST_MODE_UNSPECIFIED:
+			return errors.New("broadcast method unknown")
 		case tx.BroadcastMode_BROADCAST_MODE_BLOCK:
 		case tx.BroadcastMode_BROADCAST_MODE_SYNC:
 		case tx.BroadcastMode_BROADCAST_MODE_ASYNC:

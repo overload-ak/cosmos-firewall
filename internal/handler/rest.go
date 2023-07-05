@@ -26,11 +26,11 @@ func RestHandler(ctx context.Context, validator middleware.Validator, director m
 		logger.Infof("REST Method: [%s], RequestURI: [%s]", request.Method, request.URL.RequestURI())
 		logger.Info("REST request body base64: ", base64.StdEncoding.EncodeToString(body))
 		url := request.URL.RequestURI()
-
 		if !validator.IsRESTRouterAllowed(url) {
 			restResponse(writer, http.StatusMethodNotAllowed, "method not allowed", nil)
 			return
 		}
+		var height int64
 		switch url {
 		case "/cosmos/tx/v1beta1/simulate":
 			simulateReq := tx.SimulateRequest{}
@@ -106,7 +106,7 @@ func RestHandler(ctx context.Context, validator middleware.Validator, director m
 			}
 		}
 		if director != nil {
-			client, err := director(ctx, 1, url)
+			client, err := director(ctx, height)
 			if err != nil {
 				restResponse(writer, http.StatusMisdirectedRequest, err.Error(), nil)
 				return

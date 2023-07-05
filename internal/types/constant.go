@@ -1,9 +1,9 @@
 package types
 
-type modelNode string
+type ModelNode string
 
 const (
-	LightNode   modelNode = "light"
-	FullNode    modelNode = "full"
-	ArchiveNode modelNode = "archive"
+	LightNode   ModelNode = "light"
+	FullNode    ModelNode = "full"
+	ArchiveNode ModelNode = "archive"
 )

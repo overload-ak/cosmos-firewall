@@ -16,7 +16,7 @@ import (
 	"github.com/overload-ak/cosmos-firewall/internal/types"
 )
 
-type Director func(ctx context.Context, height int64, fullMethodName string) (*RedirectClient, error)
+type Director func(ctx context.Context, height int64) (*RedirectClient, error)
 
 type Redirect struct {
 	node *node.Node
@@ -27,7 +27,7 @@ func NewRedirect(node *node.Node) *Redirect {
 }
 
 // HttpDirector todo choose Light、Full or Archive node
-func (r *Redirect) HttpDirector(ctx context.Context, height int64, fullMethodName string) (*RedirectClient, error) {
+func (r *Redirect) HttpDirector(ctx context.Context, height int64) (*RedirectClient, error) {
 	if r.node == nil {
 		return nil, errors.New("empty node")
 	}
@@ -48,7 +48,7 @@ func (r *Redirect) HttpDirector(ctx context.Context, height int64, fullMethodNam
 }
 
 // StreamDirector todo choose Light、Full or Archive node
-func (r *Redirect) StreamDirector(ctx context.Context, height int64, fullMethodName string) (*RedirectClient, error) {
+func (r *Redirect) StreamDirector(ctx context.Context, height int64) (*RedirectClient, error) {
 	if r.node == nil {
 		return nil, errors.New("empty node")
 	}
