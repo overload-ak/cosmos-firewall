@@ -1,44 +1,49 @@
 package handler
 
 import (
+	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/pkg/errors"
 	"github.com/tendermint/tendermint/rpc/jsonrpc/server"
-	"github.com/tendermint/tendermint/rpc/jsonrpc/types"
+	tmtypes "github.com/tendermint/tendermint/rpc/jsonrpc/types"
 
 	"github.com/overload-ak/cosmos-firewall/internal/middleware"
 	"github.com/overload-ak/cosmos-firewall/logger"
 )
 
-func JSONRPCHandler(validator middleware.Validator, forwarder middleware.Forwarder) http.HandlerFunc {
+func JSONRPCHandler(ctx context.Context, validator middleware.Validator, director middleware.Director) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		bodyCopy := r.Body
-		body, err := io.ReadAll(bodyCopy)
+		body, err := io.ReadAll(r.Body)
 		if err != nil {
-			jsonRpcResponse(w, http.StatusInternalServerError, types.RPCInvalidParamsError(nil, err))
+			jsonRpcResponse(w, http.StatusInternalServerError, tmtypes.RPCInvalidParamsError(nil, err))
 			return
 		}
 		logger.Infof("JSONRPC Method: [%s], RequestURI: [%s]", r.Method, r.URL.RequestURI())
 		logger.Info("JSONRPC request body base64: ", base64.StdEncoding.EncodeToString(body))
 		path := r.URL.Path
 		if !validator.IsJSONPRCRouterAllowed(path) {
-			jsonRpcResponse(w, http.StatusMethodNotAllowed, types.RPCMethodNotFoundError(nil))
+			jsonRpcResponse(w, http.StatusMethodNotAllowed, tmtypes.RPCMethodNotFoundError(nil))
 			return
 		}
-		if r.Method == http.MethodPost {
-			var requests []types.RPCRequest
+		var height int64
+		if len(body) == 0 && r.Method == http.MethodGet {
+			height, _ = strconv.ParseInt(r.URL.Query().Get("height"), 10, 64)
+		} else if len(body) > 0 {
+			var requests []tmtypes.RPCRequest
 			if err = json.Unmarshal(body, &requests); err != nil {
-				var request types.RPCRequest
+				var request tmtypes.RPCRequest
 				if err = json.Unmarshal(body, &request); err != nil {
-					jsonRpcResponse(w, http.StatusInternalServerError, types.RPCParseError(err))
+					jsonRpcResponse(w, http.StatusInternalServerError, tmtypes.RPCParseError(err))
 					return
 				}
-				requests = []types.RPCRequest{request}
+				requests = []tmtypes.RPCRequest{request}
 			}
 			for _, rpcRequest := range requests {
 				request := rpcRequest
@@ -54,25 +59,40 @@ func JSONRPCHandler(validator middleware.Validator, forwarder middleware.Forward
 						request.Method == "broadcast_tx_sync" || request.Method == "broadcast_tx_async" {
 						txBytes, err := getTxBytesFromParams(request.Params)
 						if err != nil {
-							jsonRpcResponse(w, http.StatusInternalServerError, types.RPCInvalidParamsError(request.ID, err))
+							jsonRpcResponse(w, http.StatusInternalServerError, tmtypes.RPCInvalidParamsError(request.ID, err))
 							return
 						}
 						if err = validator.CheckTxBytes(txBytes); err != nil {
-							jsonRpcResponse(w, http.StatusInternalServerError, types.RPCInternalError(nil, err))
+							jsonRpcResponse(w, http.StatusInternalServerError, tmtypes.RPCInternalError(nil, err))
 							return
 						}
+					}
+					// todo height
+					if request.Method == "block" || request.Method == "block_results" || request.Method == "commit" ||
+						request.Method == "consensus_params" || request.Method == "validators" {
+						//	request.Params
+						params, err := getTxBytesFromParams(request.Params)
+						if err != nil {
+							panic(err)
+						}
+						logger.Infof("%v", params)
 					}
 				}
 			}
 		}
-		if forwarder.Enable() {
-			if err = forwarder.HttpRequest(middleware.JSONREQUEST, w, r); err != nil {
-				jsonRpcResponse(w, http.StatusInternalServerError, types.RPCInternalError(nil, err))
+		if director != nil {
+			client, err := director(ctx, height)
+			if err != nil {
+				jsonRpcResponse(w, http.StatusMisdirectedRequest, tmtypes.RPCInternalError(nil, err))
+				return
+			}
+			if err = client.HttpRedirect(w, r, bytes.NewReader(body)); err != nil {
+				jsonRpcResponse(w, http.StatusMisdirectedRequest, tmtypes.RPCInternalError(nil, err))
 				return
 			}
 			return
 		}
-		jsonRpcResponse(w, http.StatusOK, types.NewRPCSuccessResponse(nil, "SUCCESS"))
+		jsonRpcResponse(w, http.StatusOK, tmtypes.NewRPCSuccessResponse(nil, "SUCCESS"))
 	}
 }
 
@@ -106,14 +126,14 @@ func getTxBytesFromParams(data json.RawMessage) ([]byte, error) {
 	return nil, errors.New("unknown type tx raw message")
 }
 
-func jsonRpcResponse(writer http.ResponseWriter, code int, res types.RPCResponse) {
+func jsonRpcResponse(writer http.ResponseWriter, code int, res tmtypes.RPCResponse) {
 	if code != http.StatusOK {
 		if err := server.WriteRPCResponseHTTPError(writer, code, res); err != nil {
 			logger.Error("failed to write response", "res", res, "err", err)
 		}
 		return
 	}
-	if err := server.WriteRPCResponseHTTP(writer, types.NewRPCSuccessResponse(types.JSONRPCIntID(0), res)); err != nil {
+	if err := server.WriteRPCResponseHTTP(writer, tmtypes.NewRPCSuccessResponse(tmtypes.JSONRPCIntID(0), res)); err != nil {
 		logger.Error("failed to write response", "res", res, "err", err)
 	}
 }

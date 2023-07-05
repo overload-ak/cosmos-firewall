@@ -30,10 +30,6 @@ build: go.sum
 build-linux:
 	@GOOS=linux GOARCH=amd64 $(MAKE) build
 
-# If you are using the default builder, you need to first run 'docker buildx create --name container --driver docker-container && docker buildx use container'."
-build-docker:
-	@docker buildx build --build-arg https_proxy --push --platform linux/amd64,linux/arm64 -t harbor.wokoworks.com/functionx/fx-helper:6.3.0 .
-
 INSTALL_DIR := $(shell go env GOPATH)/bin
 install: build $(INSTALL_DIR)
 	mv $(BUILDDIR)/bin/firewalld $(shell go env GOPATH)/bin/firewalld
@@ -62,8 +58,7 @@ lint:
 	
 
 format: format-goimports
-	find . -name '*.go' -type f -not -path "./build*" -not -path "./contract*" -not -path "./tests/contract*" -not -name "statik.go" -not -name "*.pb.go" -not -name "*.pb.gw.go" | xargs gofumpt -w -l
-	golangci-lint run --fix
+	golangci-lint run --fix --out-format=tab --issues-exit-code=0
 
 format-goimports:
 	@go install github.com/incu6us/goimports-reviser/v3@latest

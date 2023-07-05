@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -14,8 +15,9 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/overload-ak/cosmos-firewall/config"
-	handler "github.com/overload-ak/cosmos-firewall/internal/handler"
+	"github.com/overload-ak/cosmos-firewall/internal/handler"
 	"github.com/overload-ak/cosmos-firewall/internal/middleware"
+	"github.com/overload-ak/cosmos-firewall/internal/node"
 	"github.com/overload-ak/cosmos-firewall/internal/types"
 	"github.com/overload-ak/cosmos-firewall/logger"
 )
@@ -59,20 +61,38 @@ func start() *cobra.Command {
 	return cmd
 }
 
-func Run(config *config.Config) error {
+func Run(config *config.Config) (err error) {
+	var jsonrpcNodes, grpcNodes, restNodes *node.Node
+	if config.Redirect.Enable {
+		light := config.Redirect.Nodes[string(types.LightNode)]
+		fullNode := config.Redirect.Nodes[string(types.FullNode)]
+		archiveNode := config.Redirect.Nodes[string(types.ArchiveNode)]
+		jsonrpcNodes, err = node.NewJSONRPCNode(light.JSONRPCNode, fullNode.JSONRPCNode, archiveNode.JSONRPCNode, config.Redirect.TimeoutSecond, config.Redirect.CheckNodeSecond)
+		if err != nil {
+			return err
+		}
+		grpcNodes, err = node.NewGRPCNode(light.GRPCNode, fullNode.GRPCNode, archiveNode.GRPCNode, config.Redirect.TimeoutSecond, config.Redirect.CheckNodeSecond)
+		if err != nil {
+			return err
+		}
+		restNodes, err = node.NewRESTNode(light.RESTNode, fullNode.RESTNode, archiveNode.RESTNode, config.Redirect.TimeoutSecond, config.Redirect.CheckNodeSecond)
+		if err != nil {
+			return err
+		}
+	}
+
 	validator := middleware.NewValidator(config)
-	forwarder := middleware.NewForwarder(config.Forward)
 	ctx, cancelFn := context.WithCancel(context.Background())
 	g, ctx := errgroup.WithContext(ctx)
 	ListenForQuitSignals(cancelFn)
 	g.Go(func() error {
-		return RunJSONRPCServer(ctx, validator, forwarder)
+		return RunJSONRPCServer(ctx, validator, jsonrpcNodes)
 	})
 	g.Go(func() error {
-		return RunRESTServer(ctx, validator, forwarder)
+		return RunRESTServer(ctx, validator, restNodes)
 	})
 	g.Go(func() error {
-		return RunGRPCServer(ctx, validator, forwarder)
+		return RunGRPCServer(ctx, validator, grpcNodes)
 	})
 	return g.Wait()
 }
@@ -87,9 +107,20 @@ func ListenForQuitSignals(cancelFn context.CancelFunc) {
 	}()
 }
 
-func RunGRPCServer(ctx context.Context, validator middleware.Validator, forwarder middleware.Forwarder) error {
+func RunGRPCServer(ctx context.Context, validator middleware.Validator, node *node.Node) error {
 	logger.Infof("start GRPC server listening on %v", validator.Cfg.GRPCAddress)
-	grpcSrv := grpc.NewServer(grpc.CustomCodec(types.Codec()), grpc.UnknownServiceHandler(handler.TransparentHandler(validator, forwarder))) //nolint:staticcheck
+	var director middleware.Director
+	if node != nil {
+		go func() {
+			node.CheckNode()
+			ticker := time.NewTicker(time.Duration(node.CheckNodeSecond) * time.Second)
+			for range ticker.C {
+				node.CheckNode()
+			}
+		}()
+		director = middleware.NewRedirect(node).StreamDirector
+	}
+	grpcSrv := grpc.NewServer(grpc.CustomCodec(types.Codec()), grpc.UnknownServiceHandler(handler.TransparentHandler(ctx, validator, director))) //nolint:staticcheck
 	addr, err := net.Listen("tcp", validator.Cfg.GRPCAddress)
 	if err != nil {
 		return err
@@ -109,9 +140,20 @@ func RunGRPCServer(ctx context.Context, validator middleware.Validator, forwarde
 	}
 }
 
-func RunRESTServer(ctx context.Context, validator middleware.Validator, forwarder middleware.Forwarder) error {
+func RunRESTServer(ctx context.Context, validator middleware.Validator, node *node.Node) error {
 	logger.Infof("start REST server listening on %v", validator.Cfg.RestAddress)
-	srv := &http.Server{Addr: validator.Cfg.RestAddress, Handler: handler.RestHandler(validator, forwarder)}
+	var director middleware.Director
+	if node != nil {
+		go func() {
+			node.CheckNode()
+			ticker := time.NewTicker(time.Duration(node.CheckNodeSecond) * time.Second)
+			for range ticker.C {
+				node.CheckNode()
+			}
+		}()
+		director = middleware.NewRedirect(node).HttpDirector
+	}
+	srv := &http.Server{Addr: validator.Cfg.RestAddress, Handler: handler.RestHandler(ctx, validator, director)}
 	errCh := make(chan error)
 	go func() {
 		errCh <- srv.ListenAndServe()
@@ -126,9 +168,20 @@ func RunRESTServer(ctx context.Context, validator middleware.Validator, forwarde
 	}
 }
 
-func RunJSONRPCServer(ctx context.Context, validator middleware.Validator, forwarder middleware.Forwarder) error {
+func RunJSONRPCServer(ctx context.Context, validator middleware.Validator, node *node.Node) error {
 	logger.Infof("start JSON-RPC server listening on %v", validator.Cfg.RPCAddress)
-	srv := &http.Server{Addr: validator.Cfg.RPCAddress, Handler: handler.JSONRPCHandler(validator, forwarder)}
+	var director middleware.Director
+	if node != nil {
+		go func() {
+			node.CheckNode()
+			ticker := time.NewTicker(time.Duration(node.CheckNodeSecond) * time.Second)
+			for range ticker.C {
+				node.CheckNode()
+			}
+		}()
+		director = middleware.NewRedirect(node).HttpDirector
+	}
+	srv := &http.Server{Addr: validator.Cfg.RPCAddress, Handler: handler.JSONRPCHandler(ctx, validator, director)}
 	errCh := make(chan error)
 	go func() {
 		errCh <- srv.ListenAndServe()

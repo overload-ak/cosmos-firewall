@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -14,10 +16,9 @@ import (
 	"github.com/overload-ak/cosmos-firewall/logger"
 )
 
-func RestHandler(validator middleware.Validator, forwarder middleware.Forwarder) http.HandlerFunc {
+func RestHandler(ctx context.Context, validator middleware.Validator, director middleware.Director) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		bodyCopy := request.Body
-		body, err := io.ReadAll(bodyCopy)
+		body, err := io.ReadAll(request.Body)
 		if err != nil {
 			restResponse(writer, http.StatusInternalServerError, "read all body error: ", nil)
 			return
@@ -25,11 +26,11 @@ func RestHandler(validator middleware.Validator, forwarder middleware.Forwarder)
 		logger.Infof("REST Method: [%s], RequestURI: [%s]", request.Method, request.URL.RequestURI())
 		logger.Info("REST request body base64: ", base64.StdEncoding.EncodeToString(body))
 		url := request.URL.RequestURI()
-
 		if !validator.IsRESTRouterAllowed(url) {
 			restResponse(writer, http.StatusMethodNotAllowed, "method not allowed", nil)
 			return
 		}
+		var height int64
 		switch url {
 		case "/cosmos/tx/v1beta1/simulate":
 			simulateReq := tx.SimulateRequest{}
@@ -104,9 +105,14 @@ func RestHandler(validator middleware.Validator, forwarder middleware.Forwarder)
 				return
 			}
 		}
-		if forwarder.Enable() {
-			if err = forwarder.HttpRequest(middleware.RESTREQUEST, writer, request); err != nil {
-				restResponse(writer, http.StatusInternalServerError, fmt.Sprintf("forwarder request error: %s", err.Error()), nil)
+		if director != nil {
+			client, err := director(ctx, height)
+			if err != nil {
+				restResponse(writer, http.StatusMisdirectedRequest, err.Error(), nil)
+				return
+			}
+			if err = client.HttpRedirect(writer, request, bytes.NewReader(body)); err != nil {
+				restResponse(writer, http.StatusMisdirectedRequest, err.Error(), nil)
 				return
 			}
 			return

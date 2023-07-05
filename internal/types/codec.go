@@ -3,8 +3,8 @@ package types
 import (
 	"fmt"
 
+	"github.com/gogo/protobuf/proto"
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/proto"
 )
 
 // nolint

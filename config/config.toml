@@ -1,40 +1,38 @@
 
 # Output level for logging, including package level options
-log_level = "info"
+log-level = "info"
 
 # Address defines the rpc server to listen on.
-rpc_address = "0.0.0.0:26657"
+rpc-address = "0.0.0.0:26657"
 
 # Address defines the gRPC server address to bind to.
-grpc_address = "0.0.0.0:9090"
+grpc-address = "0.0.0.0:9090"
 
 # Address defines the API server to listen on.
-rest_address = "0.0.0.0:1317"
+rest-address = "0.0.0.0:1317"
 
 [chain]
 
 # the network chain ID
-chain_id = "fxcore"
+chain-id = "fxcore"
 
 # minimum gas limit for a successful transaction
-minimum_gas_limit = 30000
+minimum-gas-limit = 30000
 
 # minimum fee for a successful transaction
-minimum_fee = ""
+minimum-fee = ""
 
 # maximum size of a memo transaction passed
-max_memo = 256
+max-memo = 256
 
 # no need to verify transaction routers
-white_routers = [
-
-]
+white-routers = []
 
 # limit the number of extension options
-extension_options = 0
+extension-options = 0
 
 # limit the number of non-critical extension options
-non_critical_extension_options = 0
+non-critical-extension_options = 0
 
 # is granter set (default value is 0 for not set, 1 for set)
 granter = 0
@@ -43,32 +41,37 @@ granter = 0
 payer = 0
 
 # signer_infos defines the number of signers for the signature
-signer_infos = 1
+signer-infos = 1
 
 # minimum signature List Length
-minimum_signatures = 1
+minimum-signatures = 1
 
 # supported Public Key Types
-public_key_type_url = ["/cosmos.crypto.secp256k1.PubKey","/ethermint.crypto.v1.ethsecp256k1.PubKey"]
+public-key-type-url = ["/cosmos.crypto.secp256k1.PubKey","/ethermint.crypto.v1.ethsecp256k1.PubKey"]
 
-[forward]
+[redirect]
 # Do you need to forward the request
 enable = true
 
-# JSON RPC address of Chain. (if forward is true, this value is required)
-json_rpc = "https://testnet-fx-json.functionx.io:26657"
-
-# GRPC address of Chain. (if forward is true, this value is required)
-grpc = "https://testnet-fx-grpc.functionx.io:9090"
-
-# REST address of Chain. (if forward is true, this value is required)
-rest = "https://testnet-fx-rest.functionx.io:1317"
-
 # Timeout for forwarding request
-time_out = 30
+time-out-second = 30
 
-# Do you need to enable proxy
-enable_proxy = false
+check-node-second = 180
 
-# Proxy address
-proxy = ""
+[redirect.nodes]
+  [redirect.nodes.light]
+  
+  json-rpc-nodes=[]
+  grpc-nodes=[]
+  rest-nodes=[]
+
+  [redirect.nodes.full]
+  
+  json-rpc-nodes=["https://testnet-fx-json.functionx.io:26657"]
+  grpc-nodes=["https://testnet-fx-grpc.functionx.io:9090"]
+  rest-nodes=["https://testnet-fx-rest.functionx.io:1317"]
+
+  [redirect.nodes.archive]
+  json-rpc-nodes=[]
+  grpc-nodes=[]
+  rest-nodes=[]

@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	"github.com/overload-ak/cosmos-firewall/internal/types"
 )
 
 const (
@@ -18,47 +20,50 @@ const (
 )
 
 type Config struct {
-	LogLevel    string        `mapstructure:"log_level"`
-	RPCAddress  string        `mapstructure:"rpc_address"`
-	GRPCAddress string        `mapstructure:"grpc_address"`
-	RestAddress string        `mapstructure:"rest_address"`
-	Chain       ChainConfig   `mapstructure:"chain"`
-	Forward     ForwardConfig `mapstructure:"forward"`
+	LogLevel    string   `mapstructure:"log-level"`
+	RPCAddress  string   `mapstructure:"rpc-address"`
+	GRPCAddress string   `mapstructure:"grpc-address"`
+	RestAddress string   `mapstructure:"rest-address"`
+	Chain       Chain    `mapstructure:"chain"`
+	Redirect    Redirect `mapstructure:"redirect"`
 }
 
-type ChainConfig struct {
-	ChainID                     string   `mapstructure:"chain_id"`
-	MinimumGasLimit             uint64   `mapstructure:"minimum_gas_limit"`
-	MinimumFee                  string   `mapstructure:"minimum_fee"`
-	MaxMemo                     int      `mapstructure:"max_memo"`
-	WhiteRouters                []string `mapstructure:"white_routers"`
-	ExtensionOptions            int      `mapstructure:"extension_options"`
-	NonCriticalExtensionOptions int      `mapstructure:"non_critical_extension_options"`
+type Chain struct {
+	ChainID                     string   `mapstructure:"chain-id"`
+	MinimumGasLimit             uint64   `mapstructure:"minimum-gas-limit"`
+	MinimumFee                  string   `mapstructure:"minimum-fee"`
+	MaxMemo                     int      `mapstructure:"max-memo"`
+	WhiteRouters                []string `mapstructure:"white-routers"`
+	ExtensionOptions            int      `mapstructure:"extension-options"`
+	NonCriticalExtensionOptions int      `mapstructure:"non-critical-extension-options"`
 	Granter                     int      `mapstructure:"granter"`
 	Payer                       int      `mapstructure:"payer"`
-	SignerInfos                 int      `mapstructure:"signer_infos"`
-	MinimumSignatures           int      `mapstructure:"minimum_signatures"`
-	PublicKeyTypeURL            []string `mapstructure:"public_key_type_url"`
+	SignerInfos                 int      `mapstructure:"signer-infos"`
+	MinimumSignatures           int      `mapstructure:"minimum-signatures"`
+	PublicKeyTypeURL            []string `mapstructure:"public-key-type-url"`
 }
 
-type ForwardConfig struct {
-	Enable      bool   `mapstructure:"enable"`
-	JSONRPC     string `mapstructure:"json_rpc"`
-	GRPC        string `mapstructure:"grpc"`
-	Rest        string `mapstructure:"rest"`
-	TimeOut     int    `mapstructure:"time_out"`
-	EnableProxy bool   `mapstructure:"enable_proxy"`
-	Proxy       string `mapstructure:"proxy"`
+type Redirect struct {
+	Enable          bool                  `mapstructure:"enable"`
+	TimeoutSecond   uint                  `mapstructure:"time-out-second"`
+	CheckNodeSecond uint                  `mapstructure:"check-node-second"`
+	Nodes           map[string]NodeConfig `mapstructure:"nodes"`
+}
+
+type NodeConfig struct {
+	JSONRPCNode []string `mapstructure:"json-rpc-nodes"`
+	GRPCNode    []string `mapstructure:"grpc-nodes"`
+	RESTNode    []string `mapstructure:"rest-nodes"`
 }
 
 // SetMinFee sets minimum gas prices.
-func (c *ChainConfig) SetMinFee(fee sdk.Coins) {
+func (c *Chain) SetMinFee(fee sdk.Coins) {
 	c.MinimumFee = fee.String()
 }
 
 // GetMinFee returns  minimum fee based on the set
 // configuration.
-func (c *ChainConfig) GetMinFee() sdk.Coins {
+func (c *Chain) GetMinFee() sdk.Coins {
 	if c.MinimumFee == "" {
 		return sdk.NewCoins()
 	}
@@ -80,7 +85,7 @@ func DefaultConfig() *Config {
 		RPCAddress:  DefaultJSONRPCAddress,
 		GRPCAddress: DefaultGRPCAddress,
 		RestAddress: DefaultRESTAddress,
-		Chain: ChainConfig{
+		Chain: Chain{
 			ChainID:                     "fxcore",
 			MinimumGasLimit:             DefaultMinGasLimit,
 			MinimumFee:                  "",
@@ -94,34 +99,41 @@ func DefaultConfig() *Config {
 			MinimumSignatures:           1,
 			PublicKeyTypeURL:            []string{"/cosmos.crypto.secp256k1.PubKey", "/ethermint.crypto.v1.ethsecp256k1.PubKey"},
 		},
-		Forward: ForwardConfig{
-			Enable:      false,
-			JSONRPC:     "",
-			GRPC:        "",
-			Rest:        "",
-			TimeOut:     5,
-			EnableProxy: false,
-			Proxy:       "",
+		Redirect: Redirect{
+			Enable:          false,
+			TimeoutSecond:   30,
+			CheckNodeSecond: 180,
+			Nodes: map[string]NodeConfig{
+				string(types.LightNode):   {JSONRPCNode: []string{}, GRPCNode: []string{}, RESTNode: []string{}},
+				string(types.ArchiveNode): {JSONRPCNode: []string{}, GRPCNode: []string{}, RESTNode: []string{}},
+				string(types.FullNode):    {JSONRPCNode: []string{}, GRPCNode: []string{}, RESTNode: []string{}},
+			},
 		},
 	}
 }
 
 func (c *Config) ValidateBasic() error {
-	if c.Forward.Enable {
-		if c.Forward.JSONRPC == "" {
-			return fmt.Errorf("json rpc address is required")
+	if c.Redirect.Enable {
+		if c.Redirect.Nodes == nil {
+			return fmt.Errorf("redirect nodes is required")
 		}
-		if c.Forward.GRPC == "" {
-			return fmt.Errorf("grpc address is required")
+		light := c.Redirect.Nodes[string(types.LightNode)]
+		archive := c.Redirect.Nodes[string(types.ArchiveNode)]
+		fullNode := c.Redirect.Nodes[string(types.FullNode)]
+		// one is allowed
+		if len(light.JSONRPCNode) > 0 && len(light.GRPCNode) > 0 && len(light.RESTNode) > 0 &&
+			len(light.JSONRPCNode) == len(light.GRPCNode) && len(light.JSONRPCNode) == len(light.RESTNode) {
+			return nil
 		}
-		if c.Forward.Rest == "" {
-			return fmt.Errorf("rest address is required")
+		if len(archive.JSONRPCNode) > 0 && len(archive.GRPCNode) > 0 && len(archive.RESTNode) > 0 &&
+			len(archive.JSONRPCNode) == len(archive.GRPCNode) && len(archive.JSONRPCNode) == len(archive.RESTNode) {
+			return nil
 		}
-	}
-	if c.Forward.EnableProxy {
-		if c.Forward.Proxy == "" {
-			return fmt.Errorf("proxy address is required")
+		if len(fullNode.JSONRPCNode) > 0 && len(fullNode.GRPCNode) > 0 && len(fullNode.RESTNode) > 0 &&
+			len(fullNode.JSONRPCNode) == len(fullNode.GRPCNode) && len(fullNode.JSONRPCNode) == len(fullNode.RESTNode) {
+			return nil
 		}
+		return fmt.Errorf("redirect node is not configured, or the node setting is wrong")
 	}
 	return nil
 }
