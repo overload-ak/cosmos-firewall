@@ -2,15 +2,15 @@ FROM golang:alpine AS builder
 
 LABEL stage=gobuilder
 
-RUN apk update --no-cache && apk add --no-cache git build-base linux-headers
+RUN apk add --no-cache git build-base linux-headers
 
 WORKDIR /build
 
 ADD go.mod .
 ADD go.sum .
-RUN go mod download
+RUN go env -w GO111MODULE=on && go mod download
 COPY . .
-RUN go build -ldflags="-s -w" -o /app/main cmd/cmd/main.go
+RUN go build -ldflags="-s -w" -o /app/main cmd/main.go
 
 
 FROM scratch
