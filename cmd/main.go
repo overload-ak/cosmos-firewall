@@ -45,9 +45,11 @@ func main() {
 			// Initialize log level
 			logger.Init(viper.GetString(flagLogLevel))
 			// Set the configuration file name and path
+			viper.AddConfigPath(".")
+			viper.AddConfigPath("./config")
 			viper.SetConfigName("config")
 			viper.SetConfigType("toml")
-			viper.AddConfigPath("./config")
+			viper.SetConfigFile(viper.GetString("config"))
 			return nil
 		},
 	}
@@ -56,6 +58,7 @@ func main() {
 	rootCmd.AddCommand(list())
 	rootCmd.PersistentFlags().String(flagLogLevel, "info", "the logging level (debug|info|warn|error|dpanic|panic|fatal)")
 	rootCmd.PersistentFlags().StringP(flagChainId, "c", "", "the chain id")
+	rootCmd.PersistentFlags().String("config", "", "config file")
 	SilenceCmdErrors(rootCmd)
 	CheckErr(rootCmd.Execute())
 }
