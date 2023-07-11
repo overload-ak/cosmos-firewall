@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/cosmos/cosmos-sdk v0.46.13
 	github.com/evmos/ethermint v0.22.0
-	github.com/fatih/color v1.13.0
+	github.com/fatih/color v1.15.0
 	github.com/functionx/fx-core/v4 v4.2.1
 	github.com/gogo/protobuf v1.3.3
 	github.com/gorilla/mux v1.8.0
